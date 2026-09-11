@@ -131,8 +131,19 @@ install_panel() {
     if ! command -v pm2 &> /dev/null; then
         log_info "Installing PM2 process manager..."
         sudo npm install -g pm2 || npm install -g pm2 || true
-    else
-        log_success "PM2 is already installed."
+    fi
+
+    # Ensure PM2 is symlinked to /usr/bin/pm2 and /usr/local/bin/pm2 for all users
+    NPM_BIN_PATH=$(npm bin -g 2>/dev/null || echo "/usr/local/bin")
+    if [ -f "$NPM_BIN_PATH/pm2" ]; then
+        sudo ln -sf "$NPM_BIN_PATH/pm2" /usr/bin/pm2 2>/dev/null || true
+        sudo ln -sf "$NPM_BIN_PATH/pm2" /usr/local/bin/pm2 2>/dev/null || true
+    fi
+    if [ -f "/usr/local/lib/node_modules/pm2/bin/pm2" ]; then
+        sudo ln -sf /usr/local/lib/node_modules/pm2/bin/pm2 /usr/bin/pm2 2>/dev/null || true
+    fi
+    if [ -f "/usr/lib/node_modules/pm2/bin/pm2" ]; then
+        sudo ln -sf /usr/lib/node_modules/pm2/bin/pm2 /usr/bin/pm2 2>/dev/null || true
     fi
 
     # Docker Setup
@@ -180,6 +191,7 @@ install_panel() {
             cp .env.example .env
         fi
         echo "PORT=${PANEL_PORT}" >> .env
+        echo "HOST=::" >> .env
         echo "JWT_SECRET=$(head -c 32 /dev/urandom | base64 2>/dev/null || date +%s%N | sha256sum | base64 | head -c 32)" >> .env
     else
         # Update or add PORT in existing .env
@@ -187,6 +199,9 @@ install_panel() {
             sed -i "s/^PORT=.*/PORT=${PANEL_PORT}/" .env
         else
             echo "PORT=${PANEL_PORT}" >> .env
+        fi
+        if ! grep -q "^HOST=" .env; then
+            echo "HOST=::" >> .env
         fi
     fi
     
@@ -203,7 +218,7 @@ module.exports = {
       exec_mode: "fork",
       autorestart: true,
       watch: false,
-      max_memory_restart: "1.5G",
+      max_memory_restart: "1024M",
       env: {
         NODE_ENV: "production",
         PORT: ${PANEL_PORT}
@@ -222,6 +237,12 @@ EOF
     log_info "Setting up initial Administrator credentials..."
     npm run createuser || echo "Skipping user creation if terminal is non-interactive."
     
+    # Fix ownership to prevent EACCES errors if script was run with sudo previously
+    if [ "$EUID" -eq 0 ] && [ -n "$SUDO_USER" ]; then
+        log_info "Fixing directory permissions for $SUDO_USER..."
+        chown -R "$SUDO_USER:$SUDO_USER" .
+    fi
+
     # Allow port in UFW firewall if active
     if command -v ufw &> /dev/null && sudo ufw status | grep -q "Status: active"; then
         log_info "Opening firewall port ${PANEL_PORT}..."
@@ -229,7 +250,9 @@ EOF
     fi
 
     log_info "Starting Nova Panel with PM2..."
-    npx pm2 start ecosystem.config.cjs
+    
+    # Force pm2 to reload with the new env 
+    npx pm2 start ecosystem.config.cjs --update-env || npx pm2 restart nova-panel --update-env
     npx pm2 save || true
 
     # Configure PM2 startup hook so panel runs automatically on reboot

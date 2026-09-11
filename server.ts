@@ -98,8 +98,20 @@ async function startServer() {
     });
   }
 
-  httpServer.listen(PORT, "0.0.0.0", () => {
+  const HOST = process.env.HOST || "::";
+
+  const server = httpServer.listen(PORT, HOST, () => {
     console.log(`Nova Panel running on port ${PORT}`);
+  });
+
+  server.on("error", (err: any) => {
+    if (err.code === "EAFNOSUPPORT" || err.code === "EADDRNOTAVAIL") {
+      httpServer.listen(PORT, "0.0.0.0", () => {
+        console.log(`Nova Panel running on port ${PORT} (IPv4 fallback)`);
+      });
+    } else {
+      console.error("Server listen error:", err);
+    }
   });
 }
 
