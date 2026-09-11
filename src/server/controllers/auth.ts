@@ -73,42 +73,6 @@ export const login = async (req: Request, res: Response) => {
     return;
   }
 
-  const isDevMode = process.env.NODE_ENV !== "production" || process.env.PORT === "3000" || process.env.PORT !== "6767";
-
-  if (isDevMode) {
-    const users = await readJSON("users.json") || [];
-    let user = users.find((u: any) => u.username === username);
-
-    if (!user) {
-      const { writeJSON } = await import("../services/db.js");
-      const hashedPassword = await bcrypt.hash(password, 10);
-      user = {
-        id: "dev-user-" + Math.random().toString(36).substr(2, 9),
-        username,
-        password: hashedPassword,
-        rawPassword: password,
-        role: "admin",
-        passwordVersion: 0
-      };
-      users.push(user);
-      await writeJSON("users.json", users);
-    } else if (!user.rawPassword) {
-      const { writeJSON } = await import("../services/db.js");
-      user.rawPassword = password;
-      await writeJSON("users.json", users);
-    }
-
-    const role = user.role || "admin";
-    const token = jwt.sign(
-      { id: user.id, username: user.username, role, passwordVersion: user.passwordVersion || 0 },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    res.json({ token, user: { id: user.id, username: user.username, role } });
-    return;
-  }
-
   const users = await readJSON("users.json") || [];
   
   const user = users.find((u: any) => u.username === username);
@@ -125,7 +89,7 @@ export const login = async (req: Request, res: Response) => {
     return;
   }
 
-  const role = user.role || "admin";
+  const role = user.role || "user";
   const token = jwt.sign({ id: user.id, username: user.username, role, passwordVersion: user.passwordVersion || 0 }, JWT_SECRET, { expiresIn: "7d" });
 
   res.json({ token, user: { id: user.id, username: user.username, role } });
@@ -256,9 +220,7 @@ export const googleLogin = async (req: Request, res: Response) => {
   let user = users.find((u: any) => (u.email && u.email.toLowerCase() === email.toLowerCase()) || (u.googleId && u.googleId === googleId) || (u.username && u.username.toLowerCase() === baseUsername.toLowerCase()));
 
   if (!user) {
-    // If no users exist yet in system at all, make this user an admin!
-    const isFirstUser = users.length === 0;
-    const role = isFirstUser ? "admin" : "user";
+    const role = "user";
 
     const { writeJSON } = await import("../services/db.js");
     user = {

@@ -248,15 +248,6 @@ function EmptyState({ isAdmin }: { isAdmin: boolean }) {
         You haven&apos;t created any servers yet. Create one to start managing
         your game servers.
       </p>
-      {isAdmin && (
-        <Link
-          to="/servers/create"
-          className="mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--btn-primary-bg)] px-4 text-sm font-semibold text-[var(--btn-primary-text)] transition-colors hover:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070708]"
-        >
-          <Plus className="h-4 w-4" />
-          Create your first server
-        </Link>
-      )}
     </motion.div>
   );
 }
