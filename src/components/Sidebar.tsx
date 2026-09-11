@@ -17,6 +17,7 @@ export function Sidebar({ onClose, isCollapsed, toggleCollapse }: { onClose?: ()
   ];
   
   if (user?.role === "admin") {
+    links.push({ name: "Create", path: "/servers/create", icon: <Plus size={18} /> });
     links.push({ name: "Manage", path: "/admin/servers", icon: <Box size={18} /> });
     links.push({ name: "Options", path: "/admin/options", icon: <Sliders size={18} /> });
     links.push({ name: "Backups", path: "/admin/backups", icon: <Archive size={18} /> });

@@ -25,19 +25,19 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   
-  --color-background: var(--bg-background);
-  --color-card: var(--bg-card);
+  --color-background: #030305;
+  --color-card: #0a0a0d;
   
-  --color-foreground: var(--text-foreground);
-  --color-foreground-muted: var(--text-foreground-muted);
-  --color-muted-foreground: var(--text-muted-foreground);
+  --color-foreground: #ffffff;
+  --color-foreground-muted: #ffffff;
+  --color-muted-foreground: #ffffff;
   
-  --color-border: var(--border-border);
-  --color-border-subtle: var(--border-border-subtle);
-  --color-border-strong: var(--border-border-strong);
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-subtle: rgba(255, 255, 255, 0.05);
+  --color-border-strong: rgba(255, 255, 255, 0.2);
   
-  --color-muted: var(--bg-muted);
-  --color-muted-hover: var(--bg-muted-hover);
+  --color-muted: rgba(255, 255, 255, 0.05);
+  --color-muted-hover: rgba(255, 255, 255, 0.1);
 }
 
 

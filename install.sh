@@ -296,7 +296,7 @@ update_panel() {
         
     log_info "Pulling latest updates from GitHub..."
     git stash || true
-    git pull origin main || git pull origin master || git pull
+    git pull https://github.com/sparkhostinger-boop/Nova.git main || git pull https://github.com/sparkhostinger-boop/Nova.git master || git pull
     
     log_info "Updating dependencies..."
     npm install
