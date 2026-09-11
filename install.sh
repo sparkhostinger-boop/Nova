@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # =========================================================
-# JTG Panel - Automated Installation & Management Script
-# Repository: https://github.com/JishnuTheGamer/Jtg
+# Nova Panel - Automated Installation & Management Script
+# Repository: https://github.com/sparkhostinger-boop/Nova
 # =========================================================
 
 set -e
@@ -20,14 +20,14 @@ print_banner() {
     clear
     echo -e "${CYAN}${BOLD}"
     echo "  ========================================================"
-    echo "   _____ _____ _____   _____                  _           "
-    echo "  |_   _|_   _/ ____| |  __ \                | |          "
-    echo "    | |   | | | |  __ | |__) |__ _ n  ___| |          "
-    echo "    | |   | | | | |_ ||  ___/ _ \ ' \/ _ \ |          "
-    echo "   _| |_  | | | |__| || |  |  __/ | | |  __/ |          "
-    echo "  |_____| |_|  \____||_|   \___|_| |_|\___|_|          "
+    echo "   _   _  ______      __ ___       _____  ___   _   _ _____ _     "
+    echo "  | \ | |/ __ \ \    / // _ \     |  __ \/ _ \ | \ | |  ___| |    "
+    echo "  |  \| | |  | \ \  / // /_\ \    | |__) / /_\ \|  \| | |__ | |    "
+    echo "  | . \` | |  | |\ \/ / |  _  |    |  ___/|  _  || . \` |  __|| |    "
+    echo "  | |\  | |__| | \  /  | | | |    | |    | | | || |\  | |___| |____"
+    echo "  \_| \_/\____/   \/   \_| |_/    |_|    \_| |_/\_| \_/\____/\_____|"
     echo "                                                          "
-    echo "            JTG PANEL MANAGEMENT & INSTALLER              "
+    echo "            NOVA PANEL MANAGEMENT & INSTALLER             "
     echo "            Main Panel Default Port: 6767                 "
     echo "  ========================================================"
     echo -e "${NC}"
@@ -60,35 +60,33 @@ install_panel() {
     echo -e "${BOLD}--- [1] Full Panel Installation ---${NC}\n"
 
     check_root
-    log_info "Checking system environment and repairing package manager if needed..."
+    log_info "Checking system environment and updating package repositories..."
 
     # Auto-repair broken dpkg / apt state if apt exists
     if command -v apt-get &> /dev/null; then
         sudo dpkg --configure -a 2>/dev/null || true
         sudo apt-get install -f -y 2>/dev/null || true
         sudo apt-get update -y || true
-        sudo apt-get install -y curl git build-essential ca-certificates tar xz-utils || log_warning "Some system packages failed to install, continuing..."
+        sudo apt-get install -y curl git build-essential ca-certificates tar xz-utils ufw || log_warning "Some system packages failed to install, continuing..."
     elif command -v yum &> /dev/null; then
         sudo yum update -y || true
         sudo yum install -y curl git make gcc-c++ ca-certificates tar xz || log_warning "Some system packages failed to install, continuing..."
     fi
 
-    # Ensure Node.js is installed and version is >= 22 (or >= 20.19)
+    # Ensure Node.js is installed and version is >= 20.18
     NEED_NODE_UPGRADE=0
     if ! command -v node &> /dev/null; then
         NEED_NODE_UPGRADE=1
     else
         NODE_MAJOR=$(node -v | cut -d'.' -f1 | tr -d 'v')
         NODE_MINOR=$(node -v | cut -d'.' -f2)
-        if [ "$NODE_MAJOR" -lt 22 ]; then
-            if [ "$NODE_MAJOR" -lt 20 ] || [ "$NODE_MINOR" -lt 19 ]; then
-                NEED_NODE_UPGRADE=1
-            fi
+        if [ "$NODE_MAJOR" -lt 20 ] || { [ "$NODE_MAJOR" -eq 20 ] && [ "$NODE_MINOR" -lt 18 ]; }; then
+            NEED_NODE_UPGRADE=1
         fi
     fi
 
     if [ "$NEED_NODE_UPGRADE" -eq 1 ]; then
-        log_info "Installing / Upgrading to Node.js 22.x..."
+        log_info "Installing / Upgrading to Node.js 22.x LTS..."
         
         # Try Nodesource first
         if command -v apt-get &> /dev/null; then
@@ -103,8 +101,8 @@ install_panel() {
         fi
 
         # Fallback to direct Node.js v22 binary installation if apt/nodesource failed
-        if [ "$CURRENT_NODE_MAJOR" -lt 22 ]; then
-            log_info "Installing Node.js 22.13.1 directly from binary tarball..."
+        if [ "$CURRENT_NODE_MAJOR" -lt 20 ]; then
+            log_info "Installing Node.js 22.13.1 directly from official binary tarball..."
             ARCH=$(uname -m)
             case "$ARCH" in
                 x86_64) NODE_ARCH="x64" ;;
@@ -123,142 +121,172 @@ install_panel() {
     fi
 
     if command -v node &> /dev/null; then
-        log_success "Node.js $(node -v) is ready."
+        log_success "Node.js $(node -v) and npm $(npm -v) are ready."
     else
-        log_error "Node.js installation could not be completed automatically."
+        log_error "Node.js installation could not be completed automatically. Please install Node.js 20+ manually."
+        return 1
     fi
     
     # Install PM2 globally
     if ! command -v pm2 &> /dev/null; then
-        log_info "Installing PM2 locally and globally..."
-        sudo npm install -g pm2 || true
-        npm install pm2 -D
+        log_info "Installing PM2 process manager..."
+        sudo npm install -g pm2 || npm install -g pm2 || true
     else
         log_success "PM2 is already installed."
     fi
 
     # Docker Setup
-    log_info "Installing Docker..."
+    log_info "Checking Docker installation for containerized server support..."
     if ! command -v docker &> /dev/null; then
+        log_info "Installing Docker Engine..."
         curl -fsSL https://get.docker.com | sh || true
         if command -v systemctl &> /dev/null; then
-            sudo systemctl enable --now docker || true
+            sudo systemctl enable --now docker 2>/dev/null || true
         fi
     else
-        log_success "Docker is already installed."
+        log_success "Docker is already installed ($(docker --version))."
     fi
 
-
-    log_info "Downloading and setting up the JTG Panel..."
+    log_info "Downloading and setting up Nova Panel..."
     
-    # Check if we are already in the Jtg directory
-    if [ -f "package.json" ] && grep -q "react-example" "package.json" 2>/dev/null; then
-        log_info "Running setup in current directory..."
+    # Check if we are already inside the cloned repository directory
+    if [ -f "package.json" ] && (grep -q "Nova" "package.json" 2>/dev/null || grep -q "react-example" "package.json" 2>/dev/null); then
+        log_info "Running setup in current directory ($(pwd))..."
         WORK_DIR="."
+    elif [ -d "Nova" ]; then
+        log_info "The 'Nova' folder already exists. Running setup inside it..."
+        WORK_DIR="Nova"
     elif [ -d "Jtg" ]; then
-        log_info "The 'Jtg' folder already exists. Running setup inside it..."
-        WORK_DIR="Jtg"
+        log_info "Found existing 'Jtg' directory. Renaming to 'Nova'..."
+        mv Jtg Nova
+        WORK_DIR="Nova"
     else
-        log_info "Cloning from GitHub..."
-        git clone https://github.com/JishnuTheGamer/Jtg
-        WORK_DIR="Jtg"
+        log_info "Cloning from GitHub repository (https://github.com/sparkhostinger-boop/Nova)..."
+        git clone https://github.com/sparkhostinger-boop/Nova.git Nova || git clone https://github.com/sparkhostinger-boop/Nova Nova
+        WORK_DIR="Nova"
     fi
     
     # Navigate into the directory
-    cd "$WORK_DIR" || { log_error "Failed to enter the directory!"; return; }
+    cd "$WORK_DIR" || { log_error "Failed to enter the directory $WORK_DIR!"; return 1; }
     
+    # Port selection prompt
+    read -p " Enter panel web port [default: 6767]: " INPUT_PORT
+    PANEL_PORT="${INPUT_PORT:-6767}"
+
     # Ensure .env exists
+    log_info "Configuring environment settings (.env)..."
     if [ ! -f ".env" ]; then
-        log_info "Setting up .env file..."
         if [ -f ".env.example" ]; then
             cp .env.example .env
+        fi
+        echo "PORT=${PANEL_PORT}" >> .env
+        echo "JWT_SECRET=$(head -c 32 /dev/urandom | base64 2>/dev/null || date +%s%N | sha256sum | base64 | head -c 32)" >> .env
+    else
+        # Update or add PORT in existing .env
+        if grep -q "^PORT=" .env; then
+            sed -i "s/^PORT=.*/PORT=${PANEL_PORT}/" .env
         else
-            echo "PORT=6767" > .env
-            echo "JWT_SECRET=$(head -c 32 /dev/urandom | base64)" >> .env
+            echo "PORT=${PANEL_PORT}" >> .env
         fi
     fi
     
-
-    
     # Ensure ecosystem.config.cjs exists for PM2
-    if [ ! -f "ecosystem.config.cjs" ]; then
-        log_info "Creating PM2 ecosystem file..."
-cat << 'EOF' > ecosystem.config.cjs
+    log_info "Configuring PM2 ecosystem file..."
+cat << EOF > ecosystem.config.cjs
 module.exports = {
   apps: [
     {
-      name: "jtg-panel",
+      name: "nova-panel",
       script: "npm",
       args: "start",
       instances: 1,
+      exec_mode: "fork",
       autorestart: true,
       watch: false,
-      max_memory_restart: "1G",
+      max_memory_restart: "1.5G",
       env: {
         NODE_ENV: "production",
-        PORT: process.env.PORT || 6767
+        PORT: ${PANEL_PORT}
       }
     }
   ]
 };
 EOF
-    fi
 
-    log_info "Installing Node.js dependencies..."
-    npm i 
+    log_info "Installing project dependencies..."
+    npm install
     
-    log_info "Building panel..."
+    log_info "Compiling and building production assets..."
     npm run build
     
-    log_info "Creating admin user..."
-    npm run createuser
+    log_info "Setting up initial Administrator credentials..."
+    npm run createuser || echo "Skipping user creation if terminal is non-interactive."
     
-    log_info "Starting panel with PM2..."
+    # Allow port in UFW firewall if active
+    if command -v ufw &> /dev/null && sudo ufw status | grep -q "Status: active"; then
+        log_info "Opening firewall port ${PANEL_PORT}..."
+        sudo ufw allow "${PANEL_PORT}/tcp" || true
+    fi
+
+    log_info "Starting Nova Panel with PM2..."
     npx pm2 start ecosystem.config.cjs
     npx pm2 save || true
+
+    # Configure PM2 startup hook so panel runs automatically on reboot
+    if command -v pm2 &> /dev/null; then
+        sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u $USER --hp $HOME 2>/dev/null || pm2 startup 2>/dev/null || true
+    fi
     
-    log_success "=========================================="
-    log_success " Panel successfully installed and started!"
-    log_success " Access URL: http://<YOUR-SERVER-IP>:6767"
-    log_success "=========================================="
+    SERVER_IP=$(curl -s https://api.ipify.org 2>/dev/null || curl -s https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
     
-    # Return to the main directory
-    if [ "$WORK_DIR" = "Jtg" ]; then
+    echo ""
+    log_success "=========================================================="
+    log_success " Nova Panel has been successfully installed and started!"
+    log_success " Access URL : http://${SERVER_IP}:${PANEL_PORT}"
+    log_success " Process    : pm2 logs nova-panel"
+    log_success "=========================================================="
+    echo ""
+    
+    # Return to the previous directory if we entered a subfolder
+    if [ "$WORK_DIR" = "Nova" ]; then
         cd ..
     fi
 }
 
 update_panel() {
     print_banner
-    echo -e "${BOLD}--- [2] Update JTG Panel ---${NC}\n"
+    echo -e "${BOLD}--- [2] Update Nova Panel ---${NC}\n"
     
-    if [ -f "package.json" ] && grep -q "react-example" "package.json" 2>/dev/null; then
+    if [ -f "package.json" ] && (grep -q "Nova" "package.json" 2>/dev/null || grep -q "react-example" "package.json" 2>/dev/null); then
         WORK_DIR="."
+    elif [ -d "Nova" ]; then
+        WORK_DIR="Nova"
     elif [ -d "Jtg" ]; then
-        WORK_DIR="Jtg"
+        mv Jtg Nova
+        WORK_DIR="Nova"
     else
-        log_error "'Jtg' directory not found! Please install the panel first (Option 1)."
-        return
+        log_error "'Nova' directory not found! Please run the installer (Option 1)."
+        return 1
     fi
     
-    cd "$WORK_DIR" || { log_error "Failed to enter the directory!"; return; }
+    cd "$WORK_DIR" || { log_error "Failed to enter directory $WORK_DIR!"; return 1; }
         
-    log_info "Fetching updates from GitHub..."
+    log_info "Pulling latest updates from GitHub..."
     git stash || true
-    git pull
+    git pull origin main || git pull origin master || git pull
     
-    log_info "Installing updated dependencies..."
-    npm i 
+    log_info "Updating dependencies..."
+    npm install
     
-    log_info "Rebuilding panel..."
+    log_info "Rebuilding production assets..."
     npm run build 
     
-    log_info "Restarting PM2 process..."
-    npx pm2 restart jtg-panel || npx pm2 restart all
+    log_info "Restarting Nova Panel process..."
+    npx pm2 restart nova-panel || npx pm2 restart all
     
-    log_success "Panel successfully updated and restarted!"
+    log_success "Nova Panel successfully updated and restarted!"
     
-    if [ "$WORK_DIR" = "Jtg" ]; then
+    if [ "$WORK_DIR" = "Nova" ]; then
         cd ..
     fi
 }
@@ -267,46 +295,46 @@ create_admin_user() {
     print_banner
     echo -e "${BOLD}--- [3] Create Admin User ---${NC}\n"
     
-    if [ -f "package.json" ] && grep -q "react-example" "package.json" 2>/dev/null; then
+    if [ -f "package.json" ] && (grep -q "Nova" "package.json" 2>/dev/null || grep -q "react-example" "package.json" 2>/dev/null); then
         WORK_DIR="."
-    elif [ -d "Jtg" ]; then
-        WORK_DIR="Jtg"
+    elif [ -d "Nova" ]; then
+        WORK_DIR="Nova"
     else
-        log_error "'Jtg' directory not found!"
-        return
+        log_error "'Nova' directory not found!"
+        return 1
     fi
     
-    cd "$WORK_DIR" || { log_error "Failed to enter the directory!"; return; }
+    cd "$WORK_DIR" || { log_error "Failed to enter directory $WORK_DIR!"; return 1; }
     
-    log_info "Running admin creation script..."
+    log_info "Launching admin user creation prompt..."
     npm run createuser
     
-    if [ "$WORK_DIR" = "Jtg" ]; then
+    if [ "$WORK_DIR" = "Nova" ]; then
         cd ..
     fi
-    log_success "Admin user created!"
+    log_success "User prompt completed!"
 }
 
 restart_panel() {
     print_banner
-    echo -e "${BOLD}--- [4] Restart JTG Panel ---${NC}\n"
+    echo -e "${BOLD}--- [4] Restart Nova Panel ---${NC}\n"
     
-    log_info "Restarting panel..."
+    log_info "Restarting Nova Panel process..."
     if command -v pm2 &> /dev/null || npx pm2 -v &> /dev/null; then
-        npx pm2 restart jtg-panel || npx pm2 restart all
-        log_success "Panel restarted successfully!"
+        npx pm2 restart nova-panel || npx pm2 restart all
+        log_success "Nova Panel restarted successfully!"
     else
-        log_error "PM2 is not installed. Panel cannot be restarted via PM2."
+        log_error "PM2 is not installed or available."
     fi
 }
 
 # Main menu loop
 while true; do
     print_banner
-    echo -e "  ${BOLD}1)${NC} Install Panel (Auto Setup - Port 6767)"
-    echo -e "  ${BOLD}2)${NC} Update Panel"
+    echo -e "  ${BOLD}1)${NC} Install Nova Panel (Auto Setup - Port 6767)"
+    echo -e "  ${BOLD}2)${NC} Update Nova Panel"
     echo -e "  ${BOLD}3)${NC} Create Admin User"
-    echo -e "  ${BOLD}4)${NC} Restart Panel"
+    echo -e "  ${BOLD}4)${NC} Restart Nova Panel"
     echo -e "  ${BOLD}5)${NC} Exit"
     echo -e "\n========================================================"
     read -p " Choose an option (1-5): " CHOICE

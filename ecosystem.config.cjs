@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: "jtg-panel",
+      name: "nova-panel",
       script: "npm",
       args: "start",
       instances: 1,
