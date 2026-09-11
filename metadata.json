@@ -1,0 +1,6 @@
+{
+  "name": "Nova Panel",
+  "description": "Nova Panel - A modern, high-performance web-based game server management panel with file manager, live console terminal, and network tunnel integrations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,31 @@
+<svg width="2048" height="1373" viewBox="0 0 2048 1373" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="1700" y="400" width="400" height="1000" fill="#020617" stroke="#f43f5e" stroke-width="4"/>
+  <path d="M1700 500 L1600 600 L1600 1373 L1700 1373 Z" fill="#020617" stroke="#f43f5e" stroke-width="4"/>
+  
+  <!-- Top vents -->
+  <rect x="1800" y="450" width="100" height="10" fill="#f43f5e"/>
+  <rect x="1800" y="480" width="100" height="10" fill="#f43f5e"/>
+  <rect x="1800" y="510" width="100" height="10" fill="#f43f5e"/>
+  
+  <!-- Abstract Tech Elements (Replaced NODE_01) -->
+  <!-- Warning Chevrons -->
+  <path d="M 1800 600 L 1850 650 L 1900 600" fill="none" stroke="#f43f5e" stroke-width="10"/>
+  <path d="M 1800 650 L 1850 700 L 1900 650" fill="none" stroke="#f43f5e" stroke-width="10"/>
+  <path d="M 1800 700 L 1850 750 L 1900 700" fill="none" stroke="#f43f5e" stroke-width="10"/>
+  
+  <!-- Vertical Data Barcode -->
+  <rect x="1800" y="800" width="100" height="5" fill="#f43f5e" opacity="0.8"/>
+  <rect x="1800" y="815" width="100" height="20" fill="#f43f5e" opacity="0.8"/>
+  <rect x="1800" y="845" width="100" height="8" fill="#f43f5e" opacity="0.8"/>
+  <rect x="1800" y="865" width="100" height="40" fill="#f43f5e" opacity="0.8"/>
+  <rect x="1800" y="915" width="100" height="5" fill="#f43f5e" opacity="0.8"/>
+  <rect x="1800" y="930" width="100" height="15" fill="#f43f5e" opacity="0.8"/>
+  <rect x="1800" y="955" width="100" height="5" fill="#f43f5e" opacity="0.8"/>
+  <rect x="1800" y="970" width="100" height="2" fill="#f43f5e" opacity="0.8"/>
+  <rect x="1800" y="980" width="100" height="30" fill="#f43f5e" opacity="0.8"/>
+  
+  <!-- Glowing connection dot -->
+  <circle cx="1850" cy="1080" r="15" fill="#f43f5e" opacity="0.9"/>
+  <circle cx="1850" cy="1080" r="25" fill="none" stroke="#f43f5e" stroke-width="2"/>
+  <circle cx="1850" cy="1080" r="35" fill="none" stroke="#f43f5e" stroke-width="1" opacity="0.5"/>
+</svg>
