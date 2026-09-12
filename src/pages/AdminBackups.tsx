@@ -57,6 +57,7 @@ export default function AdminBackups() {
   const [isRestoringCluster, setIsRestoringCluster] = useState(false);
   const [showClusterModal, setShowClusterModal] = useState(false);
   const [clusterResult, setClusterResult] = useState<{ success: boolean; message: string; stats?: any } | null>(null);
+  const [restoreProgress, setRestoreProgress] = useState<{ current: number; total: number; stage: string } | null>(null);
 
   // General error & toasts
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -172,24 +173,39 @@ export default function AdminBackups() {
     setClusterResult(null);
 
     try {
-      const CHUNK_SIZE = 512 * 1024; // 512KB chunks
+      const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunks for faster upload
       const totalChunks = Math.ceil(clusterFile.size / CHUNK_SIZE);
       const fileId = Date.now().toString() + Math.floor(Math.random() * 1000).toString();
 
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, clusterFile.size);
-        const chunk = clusterFile.slice(start, end);
-        
-        const chunkData = new FormData();
-        chunkData.append("chunk", chunk);
-        chunkData.append("fileId", fileId);
-        chunkData.append("chunkIndex", i.toString());
-        chunkData.append("totalChunks", totalChunks.toString());
-        
-        await axios.post("/api/system/backup/restore-chunk", chunkData);
+      setRestoreProgress({ current: 0, total: totalChunks, stage: "uploading" });
+
+      // Process in batches of 4 concurrent uploads to maximize speed
+      const BATCH_SIZE = 4;
+      let completedChunks = 0;
+
+      for (let i = 0; i < totalChunks; i += BATCH_SIZE) {
+        const batch = [];
+        for (let j = 0; j < BATCH_SIZE && i + j < totalChunks; j++) {
+          const chunkIndex = i + j;
+          const start = chunkIndex * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, clusterFile.size);
+          const chunk = clusterFile.slice(start, end);
+          
+          const chunkData = new FormData();
+          chunkData.append("chunk", chunk);
+          chunkData.append("fileId", fileId);
+          chunkData.append("chunkIndex", chunkIndex.toString());
+          chunkData.append("totalChunks", totalChunks.toString());
+          
+          batch.push(axios.post("/api/system/backup/restore-chunk", chunkData).then(() => {
+            completedChunks++;
+            setRestoreProgress({ current: completedChunks, total: totalChunks, stage: "uploading" });
+          }));
+        }
+        await Promise.all(batch);
       }
 
+      setRestoreProgress({ current: totalChunks, total: totalChunks, stage: "processing" });
       const res = await axios.post("/api/system/backup/restore-process", { fileId, originalName: clusterFile.name });
 
       setClusterResult({
@@ -519,19 +535,33 @@ export default function AdminBackups() {
                   type="button"
                   disabled={!clusterFile || isRestoringCluster}
                   onClick={() => setShowClusterModal(true)}
-                  className="w-full flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white shadow-xl shadow-emerald-600/20 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white shadow-xl shadow-emerald-600/20 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed relative overflow-hidden"
                 >
-                  {isRestoringCluster ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Restoring FULL PANEL Database & Files...</span>
-                    </>
-                  ) : (
-                    <>
-                      <UploadCloud className="w-4 h-4" />
-                      <span>Restore FULL PANEL Backup</span>
-                    </>
+                  {isRestoringCluster && restoreProgress && restoreProgress.stage === "uploading" && (
+                    <div 
+                      className="absolute inset-y-0 left-0 bg-white/20 transition-all duration-300 ease-out" 
+                      style={{ width: `${(restoreProgress.current / restoreProgress.total) * 100}%` }}
+                    />
                   )}
+                  <div className="relative z-10 flex items-center gap-2.5">
+                    {isRestoringCluster ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>
+                          {restoreProgress 
+                            ? (restoreProgress.stage === "uploading" 
+                                ? `Uploading... ${Math.round((restoreProgress.current / restoreProgress.total) * 100)}%` 
+                                : "Processing Backup & Files...") 
+                            : "Restoring FULL PANEL Database & Files..."}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud className="w-4 h-4" />
+                        <span>Restore FULL PANEL Backup</span>
+                      </>
+                    )}
+                  </div>
                 </button>
               </div>
             </div>
