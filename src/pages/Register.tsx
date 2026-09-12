@@ -6,6 +6,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { SkipForward } from "lucide-react";
 import gsap from "gsap";
 import axios from "axios";
+import CaptchaModal from "../components/CaptchaModal";
 import "./Login.css";
 
 export default function Register() {
@@ -20,10 +21,14 @@ export default function Register() {
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
   const { 
-    panelName, enableLoginAnimation, enableRegistration
+    panelName, enableLoginAnimation, enableRegistration, addons
   } = useSettings();
 
   const navigate = useNavigate();
+
+  const isAntibotEnabled = addons?.antibot?.enabled && addons.antibot.targetPages?.includes("register");
+  const [captchaCompleted, setCaptchaCompleted] = useState(false);
+  const [showCaptcha, setShowCaptcha] = useState(false);
 
   useEffect(() => {
     let ctx = gsap.context(() => {
@@ -80,6 +85,11 @@ export default function Register() {
     e.preventDefault();
     setError("");
     setSuccess("");
+
+    if (isAntibotEnabled && !captchaCompleted) {
+      setError("Please complete the security CAPTCHA verification.");
+      return;
+    }
     
     if (enableRegistration === false) {
       setError("Registration protocol offline (Disabled by admin).");
@@ -195,7 +205,26 @@ export default function Register() {
             />
           </div>
 
-          <button type="submit" className="login-button" disabled={isLoading}>
+          {isAntibotEnabled && !captchaCompleted && (
+            <div className="bg-zinc-900/80 border border-zinc-700/50 rounded-xl p-4 flex flex-col items-center justify-center gap-3">
+              <div className="text-sm text-zinc-300 font-medium tracking-wide">Security Check required</div>
+              <button 
+                type="button" 
+                onClick={() => setShowCaptcha(true)}
+                className="w-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg py-2 transition-all font-semibold"
+              >
+                Click to verify
+              </button>
+            </div>
+          )}
+
+          {isAntibotEnabled && captchaCompleted && (
+             <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 flex items-center justify-center gap-2 text-emerald-400 text-sm font-semibold">
+               <i className="ri-checkbox-circle-fill text-lg"></i> Verification Complete
+             </div>
+          )}
+
+          <button type="submit" className="login-button" disabled={isLoading || (isAntibotEnabled && !captchaCompleted)}>
             {isLoading ? "Processing..." : "REGISTER"}
           </button>
         </form>
@@ -208,6 +237,14 @@ export default function Register() {
         </div>
       </div>
       
+      {showCaptcha && (
+        <CaptchaModal 
+          mode={addons?.antibot?.captchaMode || "Random"} 
+          onSuccess={() => { setCaptchaCompleted(true); setShowCaptcha(false); }} 
+          onClose={() => setShowCaptcha(false)} 
+        />
+      )}
+
       {isLoading && <LoadingOverlay message="Processing..." />}
     </div>
   );

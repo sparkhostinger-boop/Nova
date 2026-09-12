@@ -9,6 +9,7 @@ import gsap from "gsap";
 import axios from "axios";
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import CaptchaModal from "../components/CaptchaModal";
 import "./Login.css";
 
 export default function Login() {
@@ -23,9 +24,13 @@ export default function Login() {
   const { 
     panelName, enableLoginAnimation, enableRegistration,
     enableGoogleLogin, firebaseApiKey, firebaseAuthDomain, firebaseProjectId,
-    firebaseStorageBucket, firebaseMessagingSenderId, firebaseAppId
+    firebaseStorageBucket, firebaseMessagingSenderId, firebaseAppId, addons
   } = useSettings();
   const navigate = useNavigate();
+
+  const isAntibotEnabled = addons?.antibot?.enabled && addons.antibot.targetPages?.includes("login");
+  const [captchaCompleted, setCaptchaCompleted] = useState(false);
+  const [showCaptcha, setShowCaptcha] = useState(false);
 
   useEffect(() => {
     let ctx = gsap.context(() => {
@@ -81,6 +86,10 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isAntibotEnabled && !captchaCompleted) {
+      setError("Please complete the security CAPTCHA verification.");
+      return;
+    }
     setIsLoading(true);
     setError("");
     try {
@@ -207,7 +216,26 @@ export default function Login() {
             />
           </div>
 
-          <button type="submit" className="login-button" disabled={isLoading}>
+          {isAntibotEnabled && !captchaCompleted && (
+            <div className="bg-zinc-900/80 border border-zinc-700/50 rounded-xl p-4 flex flex-col items-center justify-center gap-3">
+              <div className="text-sm text-zinc-300 font-medium tracking-wide">Security Check required</div>
+              <button 
+                type="button" 
+                onClick={() => setShowCaptcha(true)}
+                className="w-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg py-2 transition-all font-semibold"
+              >
+                Click to verify
+              </button>
+            </div>
+          )}
+
+          {isAntibotEnabled && captchaCompleted && (
+             <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 flex items-center justify-center gap-2 text-emerald-400 text-sm font-semibold">
+               <i className="ri-checkbox-circle-fill text-lg"></i> Verification Complete
+             </div>
+          )}
+
+          <button type="submit" className="login-button" disabled={isLoading || (isAntibotEnabled && !captchaCompleted)}>
             {isLoading ? "Authenticating..." : "Sign In"}
           </button>
         </form>
@@ -264,6 +292,14 @@ export default function Login() {
           </div>
         )}
       </div>
+
+      {showCaptcha && (
+        <CaptchaModal 
+          mode={addons?.antibot?.captchaMode || "Random"} 
+          onSuccess={() => { setCaptchaCompleted(true); setShowCaptcha(false); }} 
+          onClose={() => setShowCaptcha(false)} 
+        />
+      )}
       
       {isLoading && <LoadingOverlay message="Authenticating..." />}
     </div>

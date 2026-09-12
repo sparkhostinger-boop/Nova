@@ -204,7 +204,8 @@ router.put("/settings", async (req, res) => {
     panelName, panelLogo, panelBackgroundImage, panelBackgroundBlur, 
     enablePlayit, enableTutorial, enableLoginAnimation, enableRegistration, theme,
     enableGoogleLogin, firebaseApiKey, firebaseAuthDomain, firebaseProjectId,
-    firebaseStorageBucket, firebaseMessagingSenderId, firebaseAppId 
+    firebaseStorageBucket, firebaseMessagingSenderId, firebaseAppId,
+    addons
   } = req.body;
   const settings = await readJSON("settings.json") || {};
   if (panelName !== undefined) {
@@ -244,6 +245,7 @@ router.put("/settings", async (req, res) => {
   if (firebaseStorageBucket !== undefined) settings.firebaseStorageBucket = firebaseStorageBucket;
   if (firebaseMessagingSenderId !== undefined) settings.firebaseMessagingSenderId = firebaseMessagingSenderId;
   if (firebaseAppId !== undefined) settings.firebaseAppId = firebaseAppId;
+  if (addons !== undefined) settings.addons = addons;
   await writeJSON("settings.json", settings);
   req.app.get("io")?.emit("settings_updated");
   res.json({ success: true });
@@ -401,22 +403,69 @@ router.get("/backup/download", async (req, res) => {
   }
 });
 
-router.post("/backup/restore", uploadBackup.single("backup"), async (req, res) => {
+router.post("/backup/restore-chunk", uploadBackup.single("chunk"), async (req, res) => {
   const user = (req as any).user;
   if (user.role !== "admin" && user.role !== "owner") {
     return res.status(403).json({ error: "Forbidden: Admin privileges required" });
   }
 
-  if (!req.file) {
-    return res.status(400).json({ error: "No backup file uploaded" });
+  const { fileId, chunkIndex } = req.body;
+  if (!req.file || !fileId || chunkIndex === undefined) {
+    return res.status(400).json({ error: "Missing chunk data" });
   }
 
-  const uploadedFilePath = req.file.path;
-  const tempExtractDir = path.join(process.cwd(), ".data", "temp", `restore-${Date.now()}`);
+  try {
+    const chunksDir = path.join(process.cwd(), ".data", "temp", `chunks-${fileId}`);
+    await fs.ensureDir(chunksDir);
+
+    const chunkPath = path.join(chunksDir, chunkIndex.toString());
+    await fs.move(req.file.path, chunkPath, { overwrite: true });
+    
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error("Error saving chunk:", err);
+    res.status(500).json({ error: "Failed to save chunk" });
+  }
+});
+
+router.post("/backup/restore-process", express.json(), async (req, res) => {
+  const user = (req as any).user;
+  if (user.role !== "admin" && user.role !== "owner") {
+    return res.status(403).json({ error: "Forbidden: Admin privileges required" });
+  }
+
+  const { fileId } = req.body;
+  if (!fileId) return res.status(400).json({ error: "Missing fileId" });
+
+  const chunksDir = path.join(process.cwd(), ".data", "temp", `chunks-${fileId}`);
+  if (!(await fs.pathExists(chunksDir))) {
+    return res.status(400).json({ error: "Chunks not found" });
+  }
+
+  const finalZipPath = path.join(process.cwd(), ".data", "temp", `restore-${fileId}.zip`);
+  const tempExtractDir = path.join(process.cwd(), ".data", "temp", `restore-ext-${fileId}`);
 
   try {
+    const chunks = await fs.readdir(chunksDir);
+    chunks.sort((a, b) => parseInt(a) - parseInt(b));
+
+    const writeStream = fs.createWriteStream(finalZipPath);
+    for (const chunk of chunks) {
+      const chunkPath = path.join(chunksDir, chunk);
+      const data = await fs.readFile(chunkPath);
+      writeStream.write(data);
+    }
+    writeStream.end();
+
+    await new Promise((resolve, reject) => {
+      writeStream.on("finish", resolve);
+      writeStream.on("error", reject);
+    });
+
+    await fs.remove(chunksDir);
+
     await fs.ensureDir(tempExtractDir);
-    await extract(uploadedFilePath, { dir: tempExtractDir });
+    await extract(finalZipPath, { dir: tempExtractDir });
 
     // Find root folder if wrapped in a single folder
     let sourceDir = tempExtractDir;
@@ -498,7 +547,7 @@ router.post("/backup/restore", uploadBackup.single("backup"), async (req, res) =
     }
 
     // Clean up
-    await fs.remove(uploadedFilePath);
+    await fs.remove(finalZipPath);
     await fs.remove(tempExtractDir);
 
     res.json({
@@ -513,8 +562,9 @@ router.post("/backup/restore", uploadBackup.single("backup"), async (req, res) =
   } catch (err: any) {
     console.error("Restore backup error:", err);
     try {
-      if (await fs.pathExists(uploadedFilePath)) await fs.remove(uploadedFilePath);
+      if (await fs.pathExists(finalZipPath)) await fs.remove(finalZipPath);
       if (await fs.pathExists(tempExtractDir)) await fs.remove(tempExtractDir);
+      if (await fs.pathExists(chunksDir)) await fs.remove(chunksDir);
     } catch (e) {}
 
     res.status(500).json({ error: err.message || "Failed to restore backup" });

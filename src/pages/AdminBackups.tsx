@@ -171,13 +171,27 @@ export default function AdminBackups() {
     setErrorMessage(null);
     setClusterResult(null);
 
-    const formData = new FormData();
-    formData.append("backup", clusterFile);
-
     try {
-      const res = await axios.post("/api/system/backup/restore", formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
+      const CHUNK_SIZE = 512 * 1024; // 512KB chunks
+      const totalChunks = Math.ceil(clusterFile.size / CHUNK_SIZE);
+      const fileId = Date.now().toString() + Math.floor(Math.random() * 1000).toString();
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, clusterFile.size);
+        const chunk = clusterFile.slice(start, end);
+        
+        const chunkData = new FormData();
+        chunkData.append("chunk", chunk);
+        chunkData.append("fileId", fileId);
+        chunkData.append("chunkIndex", i.toString());
+        chunkData.append("totalChunks", totalChunks.toString());
+        
+        await axios.post("/api/system/backup/restore-chunk", chunkData);
+      }
+
+      const res = await axios.post("/api/system/backup/restore-process", { fileId, originalName: clusterFile.name });
+
       setClusterResult({
         success: true,
         message: res.data.message || "FULL PANEL backup restored successfully!",

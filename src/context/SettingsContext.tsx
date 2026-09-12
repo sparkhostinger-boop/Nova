@@ -21,6 +21,7 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
   const [firebaseStorageBucket, setFirebaseStorageBucket] = useState<string>("");
   const [firebaseMessagingSenderId, setFirebaseMessagingSenderId] = useState<string>("");
   const [firebaseAppId, setFirebaseAppId] = useState<string>("");
+  const [addons, setAddons] = useState<any>({});
 
   const fetchSettings = async () => {
     try {
@@ -40,6 +41,7 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       if (res.data.firebaseStorageBucket !== undefined) setFirebaseStorageBucket(res.data.firebaseStorageBucket);
       if (res.data.firebaseMessagingSenderId !== undefined) setFirebaseMessagingSenderId(res.data.firebaseMessagingSenderId);
       if (res.data.firebaseAppId !== undefined) setFirebaseAppId(res.data.firebaseAppId);
+      if (res.data.addons !== undefined) setAddons(res.data.addons);
       if (res.data.theme !== undefined) {
         setTheme(res.data.theme);
         document.documentElement.setAttribute("data-theme", "dark");
@@ -116,6 +118,7 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       firebaseStorageBucket, setFirebaseStorageBucket,
       firebaseMessagingSenderId, setFirebaseMessagingSenderId,
       firebaseAppId, setFirebaseAppId,
+      addons, setAddons,
       fetchSettings 
     }}>
       {children}

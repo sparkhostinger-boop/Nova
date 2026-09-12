@@ -20,6 +20,7 @@ import Nodes from "./pages/Nodes";
 import UsersList from "./pages/UsersList";
 import AdminBackups from "./pages/AdminBackups";
 import AdminOptions from "./pages/AdminOptions";
+import AdminAddons from "./pages/AdminAddons";
 import Layout from "./components/Layout";
 import { motion, AnimatePresence } from "framer-motion";
 import { SettingsProvider, useSettings } from "./context/SettingsContext";
@@ -69,6 +70,8 @@ const AnimatedRoutes = () => {
           <Route path="/admin/servers" element={<ProtectedRoute><AdminServers /></ProtectedRoute>} />
           <Route path="/admin/options" element={<ProtectedRoute><AdminOptions /></ProtectedRoute>} />
           <Route path="/options" element={<ProtectedRoute><AdminOptions /></ProtectedRoute>} />
+          <Route path="/admin/addons" element={<ProtectedRoute><AdminAddons /></ProtectedRoute>} />
+          <Route path="/addons" element={<ProtectedRoute><AdminAddons /></ProtectedRoute>} />
           <Route path="/admin/backups" element={<ProtectedRoute><AdminBackups /></ProtectedRoute>} />
           <Route path="/backups" element={<ProtectedRoute><AdminBackups /></ProtectedRoute>} />
         </Routes>

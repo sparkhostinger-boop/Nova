@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Terminal, MapPin, Shield, ArrowRight, Server, Box } from 'lucide-react';
+import { Terminal, MapPin, Shield, ArrowRight, Server, Box, Activity } from 'lucide-react';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
@@ -47,6 +47,10 @@ export default function Dashboard() {
       return s.owner && s.owner !== user.id && s.owner !== user.username && s.owner !== user.email;
     });
   }, [realServers, user]);
+
+  const { addons } = useSettings();
+  const analyticsAddon = addons?.analytics;
+  const showAnalytics = analyticsAddon?.enabled && (analyticsAddon.visibility === "Public" || user?.role === "admin");
 
   const renderServerCard = (s: any, index: number, isAdminView: boolean = false) => {
     const checkStr = `${s.type || ''} ${s.software || ''} ${s.name || ''} ${s.version || ''}`.toLowerCase();
@@ -174,6 +178,32 @@ export default function Dashboard() {
                 </h1>
             </div>
         </header>
+
+        {showAnalytics && (
+          <div className="max-w-7xl mx-auto px-4 md:px-5 mb-10 reveal active">
+            <h2 className="font-mono text-sm tracking-[0.2em] text-theme-500 flex items-center gap-3 mb-6">
+                <span className="w-2 h-2 rounded-full bg-theme-500 animate-pulse"></span>
+                SYSTEM ANALYTICS
+                <span className="flex-1 h-px bg-gradient-to-r from-theme-500/50 to-transparent"></span>
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-zinc-950/40 border border-zinc-800 p-5 rounded-2xl backdrop-blur-md">
+                <div className="text-xs font-mono text-zinc-400 mb-2 uppercase tracking-widest">Network Status</div>
+                <div className="text-2xl font-bold font-display text-emerald-400 flex items-center gap-2">
+                  <Activity size={24} /> Optimal
+                </div>
+              </div>
+              <div className="bg-zinc-950/40 border border-zinc-800 p-5 rounded-2xl backdrop-blur-md">
+                <div className="text-xs font-mono text-zinc-400 mb-2 uppercase tracking-widest">Global Memory</div>
+                <div className="text-2xl font-bold font-display text-white">42% <span className="text-sm font-medium text-zinc-500">Allocated</span></div>
+              </div>
+              <div className="bg-zinc-950/40 border border-zinc-800 p-5 rounded-2xl backdrop-blur-md">
+                <div className="text-xs font-mono text-zinc-400 mb-2 uppercase tracking-widest">Active Instances</div>
+                <div className="text-2xl font-bold font-display text-theme-400">{realServers.filter(s => s.status === 'online').length} / {realServers.length}</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 01 MY SERVERS */}
         <section id="servers" className="py-6 border-t border-theme-600/20 bg-zinc-950/40">
