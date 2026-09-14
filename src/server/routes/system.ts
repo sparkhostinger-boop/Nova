@@ -1,6 +1,6 @@
 import express from "express";
 import { getVersions } from "../services/docker.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import os from "os";
 import { exec } from "child_process";
 import util from "util";
@@ -19,7 +19,7 @@ const uploadBackup = multer({
   limits: { fileSize: 1024 * 1024 * 1024 } // 1GB max for full backup
 });
 
-router.use(requireAuth);
+router.use(requireAdmin);
 
 router.get("/versions", async (req, res) => {
   const type = (req.query.type as string) || "PAPER";
@@ -202,8 +202,9 @@ router.put("/settings", async (req, res) => {
   if(user.role !== "admin" && user.role !== "owner") return res.status(403).json({ error: "Forbidden"});
   const { 
     panelName, panelLogo, panelBackgroundImage, panelBackgroundBlur, 
+    themePrimaryColor, themeTextColor, themeBgColor,
     enablePlayit, enableTutorial, enableLoginAnimation, enableRegistration, theme,
-    enableGoogleLogin, firebaseApiKey, firebaseAuthDomain, firebaseProjectId,
+    enableGoogleLogin, googleClientId, firebaseApiKey, firebaseAuthDomain, firebaseProjectId,
     firebaseStorageBucket, firebaseMessagingSenderId, firebaseAppId,
     addons
   } = req.body;
@@ -233,12 +234,16 @@ router.put("/settings", async (req, res) => {
   if (panelLogo !== undefined) settings.panelLogo = panelLogo;
   if (panelBackgroundImage !== undefined) settings.panelBackgroundImage = panelBackgroundImage;
   if (panelBackgroundBlur !== undefined) settings.panelBackgroundBlur = panelBackgroundBlur;
+  if (themePrimaryColor !== undefined) settings.themePrimaryColor = themePrimaryColor;
+  if (themeTextColor !== undefined) settings.themeTextColor = themeTextColor;
+  if (themeBgColor !== undefined) settings.themeBgColor = themeBgColor;
   if (enablePlayit !== undefined) settings.enablePlayit = enablePlayit;
   if (enableTutorial !== undefined) settings.enableTutorial = enableTutorial;
   if (enableLoginAnimation !== undefined) settings.enableLoginAnimation = enableLoginAnimation;
   if (enableRegistration !== undefined) settings.enableRegistration = enableRegistration;
   if (theme !== undefined) settings.theme = theme;
   if (enableGoogleLogin !== undefined) settings.enableGoogleLogin = enableGoogleLogin;
+  if (googleClientId !== undefined) settings.googleClientId = googleClientId;
   if (firebaseApiKey !== undefined) settings.firebaseApiKey = firebaseApiKey;
   if (firebaseAuthDomain !== undefined) settings.firebaseAuthDomain = firebaseAuthDomain;
   if (firebaseProjectId !== undefined) settings.firebaseProjectId = firebaseProjectId;
@@ -339,7 +344,7 @@ router.get("/backup/download", async (req, res) => {
 
     const now = new Date();
     const timestamp = now.toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const backupFilename = `sh-panel-backup-${timestamp}.zip`;
+    const backupFilename = `nova-panel-backup-${timestamp}.zip`;
 
     const servers = await readJSON("servers.json") || [];
     const users = await readJSON("users.json") || [];
@@ -458,7 +463,7 @@ router.post("/backup/restore-process", express.json(), async (req, res) => {
     writeStream.end();
 
     await new Promise((resolve, reject) => {
-      writeStream.on("finish", resolve);
+      writeStream.on("finish", () => resolve(undefined));
       writeStream.on("error", reject);
     });
 

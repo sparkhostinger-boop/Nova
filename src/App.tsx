@@ -13,6 +13,7 @@ import ServerList from "./pages/ServerList";
 import CreateServer from "./pages/CreateServer";
 import ServerView from "./pages/ServerView";
 import SettingsPage from "./pages/SettingsPage";
+import AdminCustomization from "./pages/AdminCustomization";
 import ApiKeysPage from "./pages/ApiKeysPage";
 import AdminServers from "./pages/AdminServers";
 import PlayitTunnel from "./pages/PlayitTunnel";
@@ -27,6 +28,22 @@ import { SettingsProvider, useSettings } from "./context/SettingsContext";
 import { GlobalBackground } from "./components/GlobalBackground";
 import { SystemUpdateListener } from "./components/SystemUpdateListener";
 import { TutorialOverlay } from "./components/TutorialOverlay";
+
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  if (loading) return (
+    <div className="h-[100dvh] w-full flex items-center justify-center bg-transparent text-foreground">
+      <motion.div
+        animate={{ scale: [1, 1.2, 1], rotate: [0, 180, 360] }}
+        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+        className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full"
+      />
+    </div>
+  );
+  if (!user) return <Navigate to="/register" />;
+  if (user.role !== "admin" && user.role !== "owner") return <Navigate to="/" />;
+  return <Layout>{children}</Layout>;
+};
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -60,20 +77,21 @@ const AnimatedRoutes = () => {
           <Route path="/register" element={<Register />} />
           <Route path="/" element={<ProtectedRoute><ServerList /></ProtectedRoute>} />
           <Route path="/servers" element={<ProtectedRoute><ServerList /></ProtectedRoute>} />
-          <Route path="/nodes" element={<ProtectedRoute><Nodes /></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/servers/create" element={<ProtectedRoute><CreateServer /></ProtectedRoute>} />
+          <Route path="/nodes" element={<AdminRoute><Nodes /></AdminRoute>} />
+          <Route path="/admin" element={<AdminRoute><Dashboard /></AdminRoute>} />
+          <Route path="/servers/create" element={<AdminRoute><CreateServer /></AdminRoute>} />
           <Route path="/servers/:id/*" element={<ProtectedRoute><ServerView /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-          <Route path="/api-keys" element={<ProtectedRoute><ApiKeysPage /></ProtectedRoute>} />
-          <Route path="/users" element={<ProtectedRoute><UsersList /></ProtectedRoute>} />
-          <Route path="/admin/servers" element={<ProtectedRoute><AdminServers /></ProtectedRoute>} />
-          <Route path="/admin/options" element={<ProtectedRoute><AdminOptions /></ProtectedRoute>} />
-          <Route path="/options" element={<ProtectedRoute><AdminOptions /></ProtectedRoute>} />
-          <Route path="/admin/addons" element={<ProtectedRoute><AdminAddons /></ProtectedRoute>} />
-          <Route path="/addons" element={<ProtectedRoute><AdminAddons /></ProtectedRoute>} />
-          <Route path="/admin/backups" element={<ProtectedRoute><AdminBackups /></ProtectedRoute>} />
-          <Route path="/backups" element={<ProtectedRoute><AdminBackups /></ProtectedRoute>} />
+          <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+          <Route path="/api-keys" element={<AdminRoute><ApiKeysPage /></AdminRoute>} />
+          <Route path="/users" element={<AdminRoute><UsersList /></AdminRoute>} />
+          <Route path="/admin/servers" element={<AdminRoute><AdminServers /></AdminRoute>} />
+          <Route path="/admin/options" element={<AdminRoute><AdminOptions /></AdminRoute>} />
+          <Route path="/admin/customization" element={<AdminRoute><AdminCustomization /></AdminRoute>} />
+          <Route path="/options" element={<AdminRoute><AdminOptions /></AdminRoute>} />
+          <Route path="/admin/addons" element={<AdminRoute><AdminAddons /></AdminRoute>} />
+          <Route path="/addons" element={<AdminRoute><AdminAddons /></AdminRoute>} />
+          <Route path="/admin/backups" element={<AdminRoute><AdminBackups /></AdminRoute>} />
+          <Route path="/backups" element={<AdminRoute><AdminBackups /></AdminRoute>} />
         </Routes>
       </motion.div>
     </AnimatePresence>

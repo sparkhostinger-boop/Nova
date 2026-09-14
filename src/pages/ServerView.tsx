@@ -95,7 +95,7 @@ export default function ServerView() {
 
   if (!server) {
     return (
-      <div className="flex items-center justify-center h-[100dvh] bg-[#010101]">
+      <div className="flex items-center justify-center h-[100dvh] bg-zinc-950">
         <div className="w-8 h-8 border-4 border-[#fb4242] border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
@@ -128,7 +128,7 @@ export default function ServerView() {
   };
 
   return (
-    <div className="flex h-[100dvh] w-full bg-[#010101] text-[#e9eaee] font-sans overflow-hidden">
+    <div className="flex h-[100dvh] w-full bg-zinc-950 text-[#e9eaee] font-sans overflow-hidden">
       
       {/* Mobile Sidebar Backdrop Overlay */}
       <AnimatePresence>
@@ -137,7 +137,7 @@ export default function ServerView() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="md:hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-40 transition-opacity" 
+            className="md:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-40 transition-opacity" 
             onClick={() => setSidebarOpen(false)} 
           />
         )}
@@ -145,12 +145,12 @@ export default function ServerView() {
 
       {/* Mobile Slide-Out Navigation Drawer */}
       <div 
-        className={`md:hidden fixed inset-y-0 left-0 z-50 w-[290px] max-w-[85vw] bg-[#0c0c0e] border-r border-[#232020] shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`md:hidden fixed inset-y-0 left-0 z-50 w-[290px] max-w-[85vw] bg-zinc-950 border-r border-zinc-800 shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* Drawer Header */}
-        <div className="p-4 border-b border-[#1f1d1d] flex items-center justify-between bg-[#121113]">
+        <div className="p-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/30">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500/20 to-red-500/5 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-500/20 to-red-500/5 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
               <ServerIcon size={18} />
             </div>
             <div className="min-w-0">
@@ -165,7 +165,7 @@ export default function ServerView() {
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="p-2 text-[#a1a1aa] hover:text-white hover:bg-[#27272a] rounded-lg transition-colors"
+            className="p-2 text-[#a1a1aa] hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
             aria-label="Close navigation"
           >
             <X size={20} />
@@ -191,15 +191,15 @@ export default function ServerView() {
                 onClick={() => setSidebarOpen(false)}
                 className={`flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all font-medium text-sm min-h-[44px]
                   ${isActive 
-                    ? 'bg-red-500/15 border border-red-500/30 text-white shadow-sm font-semibold' 
+                    ? 'bg-rose-500/15 border border-rose-500/30 text-white shadow-sm font-semibold' 
                     : 'text-[#d4d4d8] hover:text-white hover:bg-[#1a1818]'}`}
               >
-                <div className={`shrink-0 ${isActive ? 'text-red-400' : 'text-[#a1a1aa]'}`}>
+                <div className={`shrink-0 ${isActive ? 'text-rose-400' : 'text-[#a1a1aa]'}`}>
                   {tab.icon}
                 </div>
                 <span className="truncate">{tab.name}</span>
                 {isActive && (
-                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-red-400" />
+                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-rose-400" />
                 )}
               </Link>
             );
@@ -207,7 +207,7 @@ export default function ServerView() {
         </div>
 
         {/* Drawer Bottom Quick Navigation */}
-        <div className="p-3 border-t border-[#1f1d1d] bg-[#0e0d0f] flex flex-col gap-1">
+        <div className="p-3 border-t border-zinc-800 bg-[#0e0d0f] flex flex-col gap-1">
           <Link 
             to="/" 
             onClick={() => setSidebarOpen(false)}
@@ -236,16 +236,16 @@ export default function ServerView() {
       </div>
 
       {/* Desktop Nebula Icon Sidebar (Visible on md and larger) */}
-      <div className="hidden md:flex w-[75px] flex-col items-center py-4 bg-gradient-to-b from-[#010101]/30 to-transparent backdrop-blur-[12px] border-r border-[#131010] relative shrink-0">
+      <div className="hidden md:flex w-[75px] flex-col items-center py-4 bg-gradient-to-b from-zinc-900/20 to-transparent backdrop-blur-[12px] border-r border-zinc-800/50 relative shrink-0">
         
         {/* Home */}
         <div className="mb-4 w-full px-2">
-          <Link to="/" className="w-full h-[55px] flex items-center justify-center rounded-[10px] text-white hover:bg-[#ffffff20] transition-all relative group" title="Home">
+          <Link to="/" className="w-full h-[55px] flex items-center justify-center rounded-[10px] text-white hover:bg-zinc-800 transition-all relative group" title="Home">
             <Home size={22} className="group-hover:translate-x-[3px] transition-transform" />
           </Link>
         </div>
 
-        <div className="w-[75%] h-px bg-[#131010] mb-4"></div>
+        <div className="w-[75%] h-px bg-zinc-800/50 mb-4"></div>
 
         {/* Server Tabs */}
         <div className="flex-1 w-full px-2 overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col items-center gap-2">
@@ -260,7 +260,7 @@ export default function ServerView() {
                 to={tab.path}
                 title={tab.name}
                 className={`w-[55px] h-[55px] flex items-center justify-center rounded-[10px] transition-all relative group shrink-0
-                  ${isActive ? 'bg-[#fb4242]/20 border border-white/20' : 'text-white hover:bg-[#ffffff20]'}`}
+                  ${isActive ? 'bg-rose-500/20 border border-rose-500/30' : 'text-white hover:bg-zinc-800'}`}
               >
                 <div className={`transition-transform duration-300 ${isActive ? 'text-white' : 'text-white group-hover:translate-x-[3px]'}`}>
                   {React.cloneElement(tab.icon, { size: 22 })}
@@ -270,29 +270,47 @@ export default function ServerView() {
           })}
         </div>
 
-        <div className="w-[75%] h-px bg-[#131010] mt-4 mb-4"></div>
+        <div className="w-[75%] h-px bg-zinc-800/50 mt-4 mb-4"></div>
 
         {/* Account / Settings */}
         <div className="w-full px-2 flex flex-col gap-2 pb-2">
-          <Link to="/admin/servers" className="w-[55px] h-[55px] flex items-center justify-center rounded-[10px] text-white hover:bg-[#ffffff20] transition-all relative group shrink-0" title="Manage Servers">
+          <Link to="/admin/servers" className="w-[55px] h-[55px] flex items-center justify-center rounded-[10px] text-white hover:bg-zinc-800 transition-all relative group shrink-0" title="Manage Servers">
             <Settings size={22} className="group-hover:translate-x-[3px] transition-transform" />
           </Link>
-          <Link to="/settings" className="w-[55px] h-[55px] flex items-center justify-center rounded-[10px] text-white hover:bg-[#ffffff20] transition-all relative group shrink-0" title="Account">
+          <Link to="/settings" className="w-[55px] h-[55px] flex items-center justify-center rounded-[10px] text-white hover:bg-zinc-800 transition-all relative group shrink-0" title="Account">
             <User size={22} className="group-hover:translate-x-[3px] transition-transform" />
           </Link>
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-[100dvh] overflow-hidden min-w-0 relative bg-[#010101]">
+      
+      <div className="flex-1 flex flex-col h-[100dvh] overflow-hidden min-w-0 relative bg-zinc-950">
+        <style dangerouslySetInnerHTML={{__html: `
+          .server-bg-grid {
+              position:absolute; inset:0; z-index:0; pointer-events:none;
+              background-image:
+                  linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+              background-size:40px 40px;
+              mask-image:radial-gradient(ellipse 80% 80% at 50% 0%, #000 20%, transparent 100%);
+          }
+          .server-noise {
+              position:absolute; inset:0; z-index:10; pointer-events:none; opacity:.02;
+              background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+          }
+        `}} />
+        <div className="server-noise" />
+        <div className="server-bg-grid" />
+
         
         {/* Mobile Navigation Header Bar (Visible on mobile < md) */}
-        <header className="md:hidden flex items-center justify-between px-3.5 py-2.5 bg-[#0a0a0c]/90 backdrop-blur-md border-b border-[#1f1d1d] z-30 shrink-0">
+        <header className="md:hidden flex items-center justify-between px-3.5 py-2.5 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800 z-30 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <button
               id="mobile-server-sidebar-toggle"
               onClick={() => setSidebarOpen(true)}
-              className="p-2 -ml-1 text-[#e4e4e7] hover:text-white bg-[#18181b] hover:bg-[#27272a] border border-[#27272a] rounded-lg transition-colors flex items-center justify-center touch-manipulation min-w-[40px] min-h-[40px]"
+              className="p-2 -ml-1 text-[#e4e4e7] hover:text-white bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 rounded-lg transition-colors flex items-center justify-center touch-manipulation min-w-[40px] min-h-[40px]"
               aria-label="Open server menu"
             >
               <Menu size={20} />
@@ -317,7 +335,7 @@ export default function ServerView() {
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleCopyIp}
-              className="px-2.5 py-1.5 text-xs font-medium bg-[#18181b] hover:bg-[#27272a] border border-[#27272a] text-[#d4d4d8] hover:text-white rounded-lg transition-colors flex items-center gap-1.5 touch-manipulation min-h-[36px]"
+              className="px-2.5 py-1.5 text-xs font-medium bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 text-[#d4d4d8] hover:text-white rounded-lg transition-colors flex items-center gap-1.5 touch-manipulation min-h-[36px]"
               title="Copy Address"
             >
               {copiedIp ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
@@ -326,7 +344,7 @@ export default function ServerView() {
 
             <Link
               to="/"
-              className="p-2 text-[#a1a1aa] hover:text-white bg-[#18181b] hover:bg-[#27272a] border border-[#27272a] rounded-lg transition-colors flex items-center justify-center min-w-[36px] min-h-[36px]"
+              className="p-2 text-[#a1a1aa] hover:text-white bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 rounded-lg transition-colors flex items-center justify-center min-w-[36px] min-h-[36px]"
               title="Dashboard"
             >
               <Home size={16} />
@@ -334,7 +352,7 @@ export default function ServerView() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-x-hidden overflow-y-auto">
+        <div className="flex-1 overflow-x-hidden overflow-y-auto relative z-20">
           <Routes>
             <Route path="/" element={<ServerConsole serverId={id!} server={server} />} />
             <Route path="/players" element={<PlayerManager serverId={id!} />} />
@@ -358,9 +376,9 @@ export default function ServerView() {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-[#121214] border border-red-500/30 shadow-2xl shadow-red-500/10 rounded-2xl p-5 max-w-md w-full relative overflow-hidden"
+              className="bg-[#121214] border border-rose-500/30 shadow-2xl shadow-red-500/10 rounded-2xl p-5 max-w-md w-full relative overflow-hidden"
             >
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-amber-500" />
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-500 to-amber-500" />
               <div className="flex items-start mb-4">
                 <div className="bg-red-500/10 p-3 rounded-full mr-4">
                   <AlertTriangle className="w-6 h-6 text-red-500" />
@@ -387,7 +405,7 @@ export default function ServerView() {
                     setShowRamWarning(false);
                     executeAction('start');
                   }}
-                  className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 font-bold rounded-xl transition-colors border border-red-500/30"
+                  className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-rose-400 font-bold rounded-xl transition-colors border border-rose-500/30"
                 >
                   Start Anyway
                 </button>

@@ -51,17 +51,16 @@ function formatRate(bytes: number) {
    COMPONENTS
 ═══════════════════════════════════════════════════════ */
 const StatCard = ({ icon, label, value, dim }: any) => (
-  <div className="relative bg-[#131010] rounded-[10px] py-[15px] pr-[18px] pl-[96px] min-h-[72px] overflow-hidden flex flex-col justify-center transition-colors duration-300 hover:bg-[#1c1818] group">
-    <div className="absolute left-[16px] top-1/2 -translate-y-1/2 -rotate-[20deg] text-[#242121] transition-all duration-300 group-hover:text-[#2f2a2a] group-hover:scale-110 pointer-events-none">
+  <div className="relative bg-zinc-950/40 border border-zinc-800/50 backdrop-blur-md rounded-2xl py-4 pr-5 pl-[88px] min-h-[88px] overflow-hidden flex flex-col justify-center transition-all duration-300 hover:bg-zinc-900/60 hover:border-zinc-700/80 shadow-sm hover:shadow-md group">
+    <div className="absolute left-4 top-1/2 -translate-y-1/2 -rotate-12 text-zinc-800/60 transition-all duration-500 group-hover:text-zinc-700/80 group-hover:scale-110 pointer-events-none">
       {icon}
     </div>
-    <div className="text-[13px] text-[#9a9a9a] mb-[6px] relative z-10">{label}</div>
-    <div className="text-[17px] font-[700] text-white whitespace-nowrap overflow-hidden text-ellipsis relative z-10">
-      {value} {dim && <span className="text-[#6f6f6f] font-[400] text-[13px]">{dim}</span>}
+    <div className="text-xs font-mono tracking-wider uppercase text-zinc-400 mb-1 relative z-10">{label}</div>
+    <div className="text-lg sm:text-xl font-display font-bold text-white whitespace-nowrap overflow-hidden text-ellipsis relative z-10">
+      {value} {dim && <span className="text-zinc-500 font-medium text-sm sm:text-base ml-1">{dim}</span>}
     </div>
   </div>
 );
-
 const ChartCard = ({ title, data, dataKey, dataKey2, max, icons }: any) => {
   const chartData = useMemo(() => {
     let d = [...data];
@@ -72,12 +71,12 @@ const ChartCard = ({ title, data, dataKey, dataKey2, max, icons }: any) => {
   }, [data, dataKey, dataKey2]);
 
   return (
-    <div className="bg-[#131010] rounded-[10px] p-[12px_16px]">
-      <div className="flex justify-between items-center mb-[12px]">
-        <div className="text-[15px] font-[700] text-white">{title}</div>
-        {icons && <div className="flex gap-[9px] items-center">{icons}</div>}
+    <div className="bg-zinc-950/40 border border-zinc-800/50 backdrop-blur-md rounded-2xl p-5 shadow-sm hover:border-zinc-700/50 transition-colors">
+      <div className="flex justify-between items-center mb-4">
+        <div className="text-sm font-mono tracking-wider uppercase text-zinc-300 font-bold">{title}</div>
+        {icons && <div className="flex gap-2 items-center">{icons}</div>}
       </div>
-      <div className="relative h-[140px]">
+      <div className="relative h-[150px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 0, left: 0, right: 0, bottom: 0 }}>
             <defs>
@@ -324,7 +323,7 @@ export default function ServerConsole({ serverId, server }: ServerConsoleProps) 
     const isAmber = line.includes("WARN") || line.includes("restarting") || line.includes("stopping");
     const isGray = line.startsWith(">");
     return (
-      <div key={i} className={`mb-px break-words animate-[login_.25s_ease_both] ${isAmber ? 'text-[#e8bd15]' : isGray ? 'text-[#8f8f8f]' : 'text-[#c9c9c9]'}`}>
+      <div key={i} className={`mb-px break-words animate-[login_.25s_ease_both] ${isAmber ? 'text-amber-400' : isGray ? 'text-zinc-500' : 'text-zinc-300'}`}>
         {stripAnsi(line)}
       </div>
     );
@@ -344,18 +343,18 @@ export default function ServerConsole({ serverId, server }: ServerConsoleProps) 
 
       {/* TOP BAR */}
       <div className="flex flex-wrap sm:flex-nowrap justify-between items-center mb-[16px] sm:mb-[20px] gap-[12px] sm:gap-[14px] animate-[rise_.5s_ease_both]">
-        <div className="flex items-center gap-[12px] min-w-0">
-          <div className={`w-[11px] h-[11px] rounded-full shrink-0 ${isOnline ? 'bg-[#42e33d] shadow-[0_0_10px_rgba(66,227,61,.55)] animate-[pulseOrb_2s_ease-in-out_infinite]' : stats.status === 'offline' ? 'bg-[#524b4b]' : 'bg-[#e8bd15] animate-[pulseOrb_1s_ease-in-out_infinite]'}`} />
-          <h1 className="text-[20px] sm:text-[24px] font-[800] text-white truncate">{server?.name || "Server"}</h1>
+        <div className="flex items-center gap-4 min-w-0">
+          <div className={`w-3.5 h-3.5 rounded-full shrink-0 ${isOnline ? 'bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,.6)] animate-[pulseOrb_2s_ease-in-out_infinite]' : stats.status === 'offline' ? 'bg-zinc-600' : 'bg-amber-400 animate-[pulseOrb_1s_ease-in-out_infinite]'}`} />
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-white truncate drop-shadow-sm">{server?.name || "Server"}</h1>
         </div>
-        <div className="flex items-center gap-2 sm:gap-[14px] w-full sm:w-auto justify-end">
-          <button onClick={() => executeAction('start')} className="flex-1 sm:flex-initial min-w-[70px] sm:min-w-[104px] h-[40px] sm:h-[46px] border-none rounded-full flex items-center justify-center text-[16px] sm:text-[19px] text-white cursor-pointer bg-[#4CAF50] transition-all hover:brightness-[1.12] hover:-translate-y-px active:translate-y-0 touch-manipulation" title="Start">
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end">
+          <button onClick={() => executeAction('start')} className="flex-1 sm:flex-initial min-w-[70px] sm:min-w-[104px] h-[40px] sm:h-[46px] border border-emerald-500/20 rounded-full flex items-center justify-center text-emerald-50 bg-emerald-500/10 hover:bg-emerald-500 hover:border-emerald-400 transition-all shadow-[0_0_15px_rgba(16,185,129,0)] hover:shadow-[0_0_15px_rgba(16,185,129,0.3)] touch-manipulation" title="Start">
             <Play className="w-5 h-5 fill-current" />
           </button>
-          <button onClick={() => executeAction('restart')} className="flex-1 sm:flex-initial min-w-[70px] sm:min-w-[104px] h-[40px] sm:h-[46px] border-none rounded-full flex items-center justify-center text-[16px] sm:text-[19px] text-white cursor-pointer bg-[#e8bd15] transition-all hover:brightness-[1.12] hover:-translate-y-px active:translate-y-0 touch-manipulation" title="Restart">
+          <button onClick={() => executeAction('restart')} className="flex-1 sm:flex-initial min-w-[70px] sm:min-w-[104px] h-[40px] sm:h-[46px] border border-amber-500/20 rounded-full flex items-center justify-center text-amber-50 bg-amber-500/10 hover:bg-amber-500 hover:border-amber-400 transition-all shadow-[0_0_15px_rgba(245,158,11,0)] hover:shadow-[0_0_15px_rgba(245,158,11,0.3)] touch-manipulation" title="Restart">
             <RotateCw className="w-5 h-5" />
           </button>
-          <button onClick={() => executeAction('stop')} className="flex-1 sm:flex-initial min-w-[70px] sm:min-w-[104px] h-[40px] sm:h-[46px] border-none rounded-full flex items-center justify-center text-[16px] sm:text-[19px] text-white cursor-pointer bg-[#fb4242] transition-all hover:brightness-[1.12] hover:-translate-y-px active:translate-y-0 touch-manipulation" title="Stop">
+          <button onClick={() => executeAction('stop')} className="flex-1 sm:flex-initial min-w-[70px] sm:min-w-[104px] h-[40px] sm:h-[46px] border border-rose-500/20 rounded-full flex items-center justify-center text-rose-50 bg-rose-500/10 hover:bg-rose-500 hover:border-rose-400 transition-all shadow-[0_0_15px_rgba(244,63,94,0)] hover:shadow-[0_0_15px_rgba(244,63,94,0.3)] touch-manipulation" title="Stop">
             <Square className="w-5 h-5 fill-current" />
           </button>
         </div>
@@ -365,7 +364,7 @@ export default function ServerConsole({ serverId, server }: ServerConsoleProps) 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-[16px] mb-[16px]">
         {/* Console */}
         <div className="bg-[#131010] rounded-[10px] overflow-hidden flex flex-col h-[300px] sm:h-[350px] xl:h-[450px] animate-[rise_.5s_ease_.08s_both]">
-          <div className="flex-1 overflow-y-auto p-[10px_14px] bg-[#0d0c0c] font-mono text-[12.5px] leading-[1.62] text-[#c9c9c9]" ref={bodyRef} onScroll={onScroll}>
+          <div className="flex-1 overflow-y-auto p-[10px_14px] bg-[#0d0c0c] font-mono text-[12.5px] leading-[1.62] text-zinc-300" ref={bodyRef} onScroll={onScroll}>
              {logs.map((log, i) => renderLog(log, i))}
           </div>
           <form onSubmit={send} className="flex items-center gap-[11px] p-[10px_14px] bg-[#191717] border-t border-[#232020]">
@@ -409,7 +408,7 @@ export default function ServerConsole({ serverId, server }: ServerConsoleProps) 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-[16px] animate-[rise_.5s_ease_.24s_both]">
          <ChartCard title="CPU Load (%)" data={cpuHist} dataKey="cpu" max={stats.limitCpu} />
          <ChartCard title="Memory (MB)" data={ramHist} dataKey="ram" max={stats.limitRam} />
-         <ChartCard title="Network (KB/s)" data={netHist} dataKey="netIn" dataKey2="netOut" max={100} icons={<><ArrowDown className="w-3 h-3 text-[#22d3ee]"/><ArrowUp className="w-3 h-3 text-[#e8bd15]"/></>} />
+         <ChartCard title="Network (KB/s)" data={netHist} dataKey="netIn" dataKey2="netOut" max={100} icons={<><ArrowDown className="w-3 h-3 text-cyan-400"/><ArrowUp className="w-3 h-3 text-amber-400"/></>} />
       </div>
 
     </div>

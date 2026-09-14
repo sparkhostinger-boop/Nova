@@ -9,12 +9,16 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
   const [panelLogo, setPanelLogo] = useState<string>("");
   const [panelBackgroundImage, setPanelBackgroundImage] = useState<string>("");
   const [panelBackgroundBlur, setPanelBackgroundBlur] = useState<number>(10);
+  const [themePrimaryColor, setThemePrimaryColor] = useState<string>("");
+  const [themeTextColor, setThemeTextColor] = useState<string>("");
+  const [themeBgColor, setThemeBgColor] = useState<string>("");
   const [enablePlayit, setEnablePlayit] = useState<boolean>(false);
   const [enableTutorial, setEnableTutorial] = useState<boolean>(true);
   const [enableLoginAnimation, setEnableLoginAnimation] = useState<boolean>(true);
   const [enableRegistration, setEnableRegistration] = useState<boolean>(true);
   const [theme, setTheme] = useState<string>("dark");
   const [enableGoogleLogin, setEnableGoogleLogin] = useState<boolean>(false);
+  const [googleClientId, setGoogleClientId] = useState<string>("");
   const [firebaseApiKey, setFirebaseApiKey] = useState<string>("");
   const [firebaseAuthDomain, setFirebaseAuthDomain] = useState<string>("");
   const [firebaseProjectId, setFirebaseProjectId] = useState<string>("");
@@ -30,11 +34,15 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       if (res.data.panelLogo !== undefined) setPanelLogo(res.data.panelLogo);
       if (res.data.panelBackgroundImage !== undefined) setPanelBackgroundImage(res.data.panelBackgroundImage);
       if (res.data.panelBackgroundBlur !== undefined) setPanelBackgroundBlur(res.data.panelBackgroundBlur);
+      if (res.data.themePrimaryColor !== undefined) setThemePrimaryColor(res.data.themePrimaryColor);
+      if (res.data.themeTextColor !== undefined) setThemeTextColor(res.data.themeTextColor);
+      if (res.data.themeBgColor !== undefined) setThemeBgColor(res.data.themeBgColor);
       if (res.data.enablePlayit !== undefined) setEnablePlayit(res.data.enablePlayit);
       if (res.data.enableTutorial !== undefined) setEnableTutorial(res.data.enableTutorial);
       if (res.data.enableLoginAnimation !== undefined) setEnableLoginAnimation(res.data.enableLoginAnimation);
       if (res.data.enableRegistration !== undefined) setEnableRegistration(res.data.enableRegistration);
       if (res.data.enableGoogleLogin !== undefined) setEnableGoogleLogin(res.data.enableGoogleLogin);
+      if (res.data.googleClientId !== undefined) setGoogleClientId(res.data.googleClientId);
       if (res.data.firebaseApiKey !== undefined) setFirebaseApiKey(res.data.firebaseApiKey);
       if (res.data.firebaseAuthDomain !== undefined) setFirebaseAuthDomain(res.data.firebaseAuthDomain);
       if (res.data.firebaseProjectId !== undefined) setFirebaseProjectId(res.data.firebaseProjectId);
@@ -98,20 +106,53 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", "dark");
-  }, [theme]);
+    
+    // Inject dynamic theme colors
+    const styleId = "nova-dynamic-theme";
+    let styleEl = document.getElementById(styleId) as HTMLStyleElement;
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = styleId;
+      document.head.appendChild(styleEl);
+    }
+    
+    let css = ":root {\n";
+    if (themePrimaryColor) {
+      css += `  --color-indigo-400: ${themePrimaryColor};\n`;
+      css += `  --color-indigo-500: ${themePrimaryColor};\n`;
+      css += `  --color-indigo-600: ${themePrimaryColor};\n`;
+    }
+    if (themeBgColor) {
+      css += `  --bg-background: ${themeBgColor};\n`;
+      css += `  --color-background: ${themeBgColor};\n`;
+      css += `  --bg-card: ${themeBgColor};\n`;
+      css += `  --color-card: ${themeBgColor};\n`;
+    }
+    if (themeTextColor) {
+      css += `  --text-foreground: ${themeTextColor};\n`;
+      css += `  --color-foreground: ${themeTextColor};\n`;
+    }
+    css += "}\n";
+    styleEl.textContent = css;
+    
+  }, [theme, themePrimaryColor, themeBgColor, themeTextColor]);
 
   return (
     <SettingsContext.Provider value={{ 
       panelName, setPanelName, 
       panelLogo, setPanelLogo, 
       panelBackgroundImage, setPanelBackgroundImage, 
-      panelBackgroundBlur, setPanelBackgroundBlur, 
+      panelBackgroundBlur, setPanelBackgroundBlur,
+       themePrimaryColor, setThemePrimaryColor,
+       themeTextColor, setThemeTextColor,
+       themeBgColor, setThemeBgColor, 
       enablePlayit, setEnablePlayit, 
       enableTutorial, setEnableTutorial,
       enableLoginAnimation, setEnableLoginAnimation,
       enableRegistration, setEnableRegistration,
       theme, setTheme,
       enableGoogleLogin, setEnableGoogleLogin,
+      googleClientId, setGoogleClientId,
       firebaseApiKey, setFirebaseApiKey,
       firebaseAuthDomain, setFirebaseAuthDomain,
       firebaseProjectId, setFirebaseProjectId,

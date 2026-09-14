@@ -1,8 +1,16 @@
 import React, { useEffect, useState } from "react"; 
 import { LoadingOverlay } from "../components/LoadingOverlay";
 import axios from "axios";
-import { Archive, Download, Trash2, RefreshCw, Plus, Clock, FileArchive } from "lucide-react";
+import { Archive, Download, Trash2, RefreshCw, Plus, Clock, FileArchive, UploadCloud, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useSettings } from "../context/SettingsContext";
+import { 
+  connectGoogleDrive, 
+  initDriveAuth, 
+  uploadBackupToGoogleDrive, 
+  DriveUser, 
+  getDriveAccessToken 
+} from "../lib/googleDrive";
 
 interface Backup {
   filename: string;
@@ -11,10 +19,28 @@ interface Backup {
 }
 
 export default function ServerBackups({ serverId }: { serverId: string }) {
+  const { googleClientId } = useSettings();
   const [backups, setBackups] = useState<Backup[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [driveUser, setDriveUser] = useState<DriveUser | null>(null);
+  const [hasDriveToken, setHasDriveToken] = useState(false);
+  const [uploadingToDrive, setUploadingToDrive] = useState<string | null>(null);
+  const [driveToast, setDriveToast] = useState<string | null>(null);
   const { user } = useAuth();
+
+  useEffect(() => {
+    const unsub = initDriveAuth((authUser, tokenPresent) => {
+      setDriveUser(authUser);
+      setHasDriveToken(tokenPresent);
+    });
+    return () => unsub();
+  }, []);
+
+  const showDriveToast = (msg: string) => {
+    setDriveToast(msg);
+    setTimeout(() => setDriveToast(null), 4000);
+  };
 
   const fetchBackups = async () => {
     try {
@@ -72,6 +98,42 @@ export default function ServerBackups({ serverId }: { serverId: string }) {
     }
   };
 
+  const handleUploadToGoogleDrive = async (filename: string) => {
+    let token = getDriveAccessToken();
+    if (!token) {
+      try {
+        const authRes = await connectGoogleDrive(googleClientId);
+        setDriveUser(authRes.user);
+        setHasDriveToken(true);
+        token = authRes.token;
+      } catch (err: any) {
+        const isCancelled =
+          err?.code === "auth/popup-closed-by-user" ||
+          err?.code === "auth/cancelled-popup-request";
+        if (!isCancelled) {
+          console.error("Google Drive connection error:", err);
+          alert(err.message || "Failed to connect Google Drive.");
+        }
+        return;
+      }
+    }
+
+    setUploadingToDrive(filename);
+    try {
+      const response = await axios.get(`/api/servers/${serverId}/backups/${filename}`, {
+        responseType: "blob"
+      });
+      const blob = new Blob([response.data], { type: "application/zip" });
+      await uploadBackupToGoogleDrive(blob, filename);
+      showDriveToast(`Uploaded ${filename} directly to Google Drive!`);
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || "Failed to upload backup to Google Drive.");
+    } finally {
+      setUploadingToDrive(null);
+    }
+  };
+
   const formatSize = (bytes: number) => {
     if (bytes === 0) return "0 B";
     const k = 1024;
@@ -89,7 +151,47 @@ export default function ServerBackups({ serverId }: { serverId: string }) {
             <h2 className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground-muted mb-1">Server Backups</h2>
             <p className="text-sm text-muted-foreground">Create, download, and manage your server archives.</p>
           </div>
+
+          <div className="flex items-center gap-2">
+            {hasDriveToken && driveUser ? (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+                <CheckCircle2 size={14} />
+                <span>Google Drive Connected ({driveUser.email?.split("@")[0]})</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await connectGoogleDrive(googleClientId);
+                    setDriveUser(res.user);
+                    setHasDriveToken(true);
+                    showDriveToast("Connected to Google Drive!");
+                  } catch (e: any) {
+                    const isCancelled =
+                      e?.code === "auth/popup-closed-by-user" ||
+                      e?.code === "auth/cancelled-popup-request";
+                    if (!isCancelled) {
+                      console.error("Google Drive connection error:", e);
+                      alert(e.message || "Failed to connect Google Drive.");
+                    }
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/60 text-xs font-semibold transition-all cursor-pointer"
+              >
+                <UploadCloud size={14} className="text-indigo-400" />
+                <span>Connect Google Drive</span>
+              </button>
+            )}
+          </div>
         </div>
+
+        {driveToast && (
+          <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-xl flex items-center gap-2">
+            <CheckCircle2 size={16} />
+            <span className="font-semibold">{driveToast}</span>
+          </div>
+        )}
 
         <div className="bg-muted-subtle border border-border-subtle p-4 md:p-5 rounded-xl flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4 w-full md:w-auto">
@@ -148,6 +250,18 @@ export default function ServerBackups({ serverId }: { serverId: string }) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 w-full md:w-auto">
+                      <button 
+                        onClick={() => handleUploadToGoogleDrive(backup.filename)}
+                        disabled={uploadingToDrive === backup.filename}
+                        className="flex-1 md:flex-none flex justify-center items-center px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-medium rounded transition-colors disabled:opacity-50"
+                        title="Upload directly to Google Drive"
+                      >
+                        {uploadingToDrive === backup.filename ? (
+                          <><RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Uploading...</>
+                        ) : (
+                          <><UploadCloud className="w-3.5 h-3.5 mr-1.5" /> Drive</>
+                        )}
+                      </button>
                       <button 
                         onClick={() => handleDownload(backup.filename)}
                         className="flex-1 md:flex-none flex justify-center items-center px-3 py-1.5 bg-muted hover:bg-muted-hover text-foreground text-xs font-medium rounded transition-colors"

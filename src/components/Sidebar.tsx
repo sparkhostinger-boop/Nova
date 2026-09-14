@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Server, LayoutDashboard, Plus, LogOut, X, Settings, Key, User, Activity, Box, Search, Bell, Archive, Sliders, Puzzle } from "lucide-react";
+import { Server, LayoutDashboard, Plus, LogOut, X, Settings, Key, User, Activity, Box, Search, Bell, Archive, Sliders, Puzzle, Palette } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,6 +20,7 @@ export function Sidebar({ onClose, isCollapsed, toggleCollapse }: { onClose?: ()
     links.push({ name: "Create", path: "/servers/create", icon: <Plus size={18} /> });
     links.push({ name: "Manage", path: "/admin/servers", icon: <Box size={18} /> });
     links.push({ name: "Options", path: "/admin/options", icon: <Sliders size={18} /> });
+    links.push({ name: "Customization", path: "/admin/customization", icon: <Palette size={18} /> });
     links.push({ name: "Addons", path: "/admin/addons", icon: <Puzzle size={18} /> });
     links.push({ name: "Backups", path: "/admin/backups", icon: <Archive size={18} /> });
     links.push({ name: "Users", path: "/users", icon: <User size={18} /> });
