@@ -19,7 +19,7 @@ const uploadBackup = multer({
   limits: { fileSize: 1024 * 1024 * 1024 } // 1GB max for full backup
 });
 
-router.use(requireAdmin);
+router.use(requireAuth);
 
 router.get("/versions", async (req, res) => {
   const type = (req.query.type as string) || "PAPER";
@@ -97,14 +97,47 @@ router.get("/stats", async (req, res) => {
      // fallback
   }
   
+  const totalRamGB = totalMemory / (1024 * 1024 * 1024);
+  const freeRamGB = freeMemory / (1024 * 1024 * 1024);
+  const usedRamGB = (totalMemory - freeMemory) / (1024 * 1024 * 1024);
+
   res.json({
     cpuUsage: cpuUsage,
     totalMemory,
     freeMemory,
     ramUsage: Math.round(((totalMemory - freeMemory) / totalMemory) * 100),
+    ram: {
+      total: totalRamGB,
+      free: freeRamGB,
+      used: usedRamGB,
+      percentage: Math.round(((totalMemory - freeMemory) / totalMemory) * 100)
+    },
     diskUsage: diskSpace,
     activeContainers,
     totalContainers
+  });
+});
+
+router.get("/metrics", async (req, res) => {
+  const totalMemory = os.totalmem();
+  const freeMemory = os.freemem();
+  const totalRamGB = totalMemory / (1024 * 1024 * 1024);
+  const freeRamGB = freeMemory / (1024 * 1024 * 1024);
+  const usedRamGB = (totalMemory - freeMemory) / (1024 * 1024 * 1024);
+  const cpuUsage = await getCpuUsage();
+
+  res.json({
+    ram: {
+      total: totalRamGB,
+      free: freeRamGB,
+      used: usedRamGB,
+      percentage: Math.round(((totalMemory - freeMemory) / totalMemory) * 100)
+    },
+    cpu: {
+      usage: cpuUsage
+    },
+    totalMemory,
+    freeMemory
   });
 });
 

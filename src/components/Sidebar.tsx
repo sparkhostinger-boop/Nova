@@ -15,14 +15,15 @@ export function Sidebar({ onClose, isCollapsed, toggleCollapse }: { onClose?: ()
     ? discordAddon.inviteUrl.trim()
     : "https://discord.gg";
   
+  const isAdmin = user?.role === "admin" || user?.role === "owner";
+
   const links = [
     { name: "My Servers", path: "/", icon: <Server size={18} /> },
-    { name: "Overview", path: "/admin", icon: <LayoutDashboard size={18} /> },
-    { name: "Nodes", path: "/nodes", icon: <Activity size={18} /> },
-
   ];
   
-  if (user?.role === "admin") {
+  if (isAdmin) {
+    links.push({ name: "Overview", path: "/admin", icon: <LayoutDashboard size={18} /> });
+    links.push({ name: "Nodes", path: "/nodes", icon: <Activity size={18} /> });
     links.push({ name: "Create", path: "/servers/create", icon: <Plus size={18} /> });
     links.push({ name: "Manage", path: "/admin/servers", icon: <Box size={18} /> });
     links.push({ name: "Options", path: "/admin/options", icon: <Sliders size={18} /> });
@@ -31,8 +32,8 @@ export function Sidebar({ onClose, isCollapsed, toggleCollapse }: { onClose?: ()
     links.push({ name: "Backups", path: "/admin/backups", icon: <Archive size={18} /> });
     links.push({ name: "Users", path: "/users", icon: <User size={18} /> });
     links.push({ name: "API Keys", path: "/api-keys", icon: <Key size={18} /> });
+    links.push({ name: "Settings", path: "/settings", icon: <Settings size={18} /> });
   }
-  links.push({ name: "Settings", path: "/settings", icon: <Settings size={18} /> });
 
   return (
     <div className={`h-full flex flex-col bg-card/80 backdrop-blur-xl border-r border-border transition-all duration-300 z-20 ${isCollapsed ? 'w-20' : 'w-64'}`}>

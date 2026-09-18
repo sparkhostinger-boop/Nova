@@ -21,10 +21,13 @@ import PlayerManager from "../components/PlayerManager";
 import ServerSFTP from "../components/ServerSFTP";
 import PlayitTunnel from "./PlayitTunnel";
 import { useSettings } from "../context/SettingsContext";
+import { useAuth } from "../context/AuthContext";
 
 export default function ServerView() {
   const { id } = useParams();
   const { enablePlayit } = useSettings();
+  const { user, openAccountModal } = useAuth();
+  const isAdmin = user?.role === "admin" || user?.role === "owner";
   const [server, setServer] = useState<any>(null);
   const [totalSystemRam, setTotalSystemRam] = useState<number>(0);
   const [showRamWarning, setShowRamWarning] = useState(false);
@@ -57,11 +60,22 @@ export default function ServerView() {
   const fetchSystemRam = async () => {
     try {
       const { data } = await axios.get('/api/system/metrics');
-      if (data && data.ram) {
+      if (data?.ram?.total) {
         setTotalSystemRam(data.ram.total);
+      } else if (data?.totalMemory) {
+        setTotalSystemRam(data.totalMemory / (1024 * 1024 * 1024));
       }
     } catch (error) {
-      console.error("Error fetching system ram:", error);
+      try {
+        const { data: statsData } = await axios.get('/api/system/stats');
+        if (statsData?.ram?.total) {
+          setTotalSystemRam(statsData.ram.total);
+        } else if (statsData?.totalMemory) {
+          setTotalSystemRam(statsData.totalMemory / (1024 * 1024 * 1024));
+        }
+      } catch (fallbackError) {
+        console.warn("Could not retrieve system ram metrics:", fallbackError);
+      }
     }
   };
 
@@ -216,22 +230,27 @@ export default function ServerView() {
             <Home size={18} />
             <span>Dashboard</span>
           </Link>
-          <Link 
-            to="/admin/servers" 
-            onClick={() => setSidebarOpen(false)}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#a1a1aa] hover:text-white hover:bg-[#1a1818] transition-colors"
-          >
-            <Settings size={18} />
-            <span>Manage Servers</span>
-          </Link>
-          <Link 
-            to="/settings" 
-            onClick={() => setSidebarOpen(false)}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#a1a1aa] hover:text-white hover:bg-[#1a1818] transition-colors"
+          {isAdmin && (
+            <Link 
+              to="/admin/servers" 
+              onClick={() => setSidebarOpen(false)}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#a1a1aa] hover:text-white hover:bg-[#1a1818] transition-colors"
+            >
+              <Settings size={18} />
+              <span>Manage Servers</span>
+            </Link>
+          )}
+          <button 
+            type="button"
+            onClick={() => {
+              setSidebarOpen(false);
+              openAccountModal();
+            }}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#a1a1aa] hover:text-white hover:bg-[#1a1818] transition-colors w-full text-left"
           >
             <User size={18} />
             <span>Account Settings</span>
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -309,20 +328,23 @@ export default function ServerView() {
 
         {/* Desktop Sidebar Bottom Quick Navigation */}
         <div className="p-2.5 border-t border-zinc-800/60 bg-zinc-950/40 flex flex-col gap-1">
-          <Link 
-            to="/admin/servers" 
-            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition-colors"
-          >
-            <Settings size={15} className="text-zinc-400" />
-            <span className="truncate">Manage Servers</span>
-          </Link>
-          <Link 
-            to="/settings" 
-            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition-colors"
+          {isAdmin && (
+            <Link 
+              to="/admin/servers" 
+              className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition-colors"
+            >
+              <Settings size={15} className="text-zinc-400" />
+              <span className="truncate">Manage Servers</span>
+            </Link>
+          )}
+          <button 
+            type="button"
+            onClick={openAccountModal}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition-colors w-full text-left"
           >
             <User size={15} className="text-zinc-400" />
             <span className="truncate">Account</span>
-          </Link>
+          </button>
         </div>
       </aside>
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Search, Server, LayoutDashboard, Plus, Settings, Key, Activity, X, ChevronRight, Terminal, ArrowRight, CornerDownLeft, Sliders, Archive } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useAuth } from "../context/AuthContext";
 
 interface SearchServer {
   id: string;
@@ -89,6 +90,8 @@ const STATIC_NAV_LINKS: QuickLink[] = [
 ];
 
 export default function GlobalSearchModal() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin" || user?.role === "owner";
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [servers, setServers] = useState<SearchServer[]>([]);
@@ -160,7 +163,10 @@ export default function GlobalSearchModal() {
       path: `/servers/${s.id}`
     }));
 
+  const ADMIN_PATHS = ["/admin", "/admin/servers", "/servers/create", "/admin/options", "/admin/backups", "/users", "/nodes", "/settings", "/api-keys"];
+
   const filteredNavLinks = STATIC_NAV_LINKS.filter((item) => {
+    if (!isAdmin && ADMIN_PATHS.includes(item.path)) return false;
     if (!cleanQuery) return true;
     return (
       item.title.toLowerCase().includes(cleanQuery) ||
