@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import { requireAuth } from "../middleware/auth.js";
-import { getServers, createServer, getServer, deleteServer, startServer, stopServer, restartServer, changeServerVersion, getFiles, uploadFile, deleteFile, renameFile, saveFileContent, sendCommand, getServerStats, updateOwner, updateIpAlias, getBackups, createBackup, downloadBackup, deleteBackup, unzipFile, zipFiles, installPlugin, installMod, updateResources, updateSuspend , createFile, createDirectory, downloadFile} from "../controllers/servers.js";
+import { getServers, createServer, getServer, deleteServer, startServer, stopServer, restartServer, changeServerVersion, getFiles, uploadFile, deleteFile, renameFile, saveFileContent, sendCommand, getServerStats, updateOwner, updateIpAlias, getBackups, createBackup, downloadBackup, deleteBackup, unzipFile, zipFiles, installPlugin, installMod, updateResources, updateSuspend , createFile, createDirectory, downloadFile, getInstalledPlugins, deleteInstalledPlugin } from "../controllers/servers.js";
 import multer from "multer";
 
 const router = express.Router();
@@ -281,6 +281,8 @@ router.delete("/:id/sftp", async (req, res) => {
   }
 });
 
+router.get("/:id/plugins/installed", getInstalledPlugins);
+router.delete("/:id/plugins/installed/:filename", deleteInstalledPlugin);
 router.post("/:id/plugins/install", installPlugin);
 router.post("/:id/mods/install", installMod);
 export default router;

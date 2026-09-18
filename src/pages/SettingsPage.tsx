@@ -390,7 +390,7 @@ export default function SettingsPage(): React.ReactElement {
             <RefreshCw className="mr-3 text-emerald-400 w-5 h-5" /> System Update
           </h2>
           <p className="text-muted-foreground text-sm mb-6 max-w-2xl">
-            Trigger an automatic update of the SH Panel. This will run git pull and rebuild the system. The panel will be unavailable for a few seconds during this process.
+            Trigger an automatic update of Nova. This will run git pull and rebuild the system. The panel will be unavailable for a few seconds during this process.
           </p>
           <button 
             onClick={handleSystemUpdate}

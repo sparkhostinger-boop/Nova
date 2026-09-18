@@ -13,7 +13,7 @@ export default function AdminAddons() {
   
   const defaultAddonsConfig = {
     footer: { enabled: false, startYear: "2024", endYear: "", customText: "Powered by Nova Panel | All Rights Reserved" },
-    discord: { enabled: false, inviteUrl: "", position: "Top-Right", buttonStyle: "Standard" },
+    discord: { enabled: false, inviteUrl: "https://discord.gg", position: "Top-Right", buttonStyle: "Standard" },
     antibot: { enabled: false, targetPages: ["login", "register"], captchaMode: "Random", maxRetries: 3 },
     maintenance: { enabled: false, message: "Server is currently down for maintenance.", timer: "" },
     analytics: { enabled: false, visibility: "Admin-only", refreshInterval: 5 }
@@ -31,11 +31,16 @@ export default function AdminAddons() {
   };
 
   const toggleAddon = (key: string) => {
+    const willEnable = !currentAddons[key]?.enabled;
+    const extra = key === "discord" && willEnable && !currentAddons[key]?.inviteUrl
+      ? { inviteUrl: "https://discord.gg" }
+      : {};
     const updated = {
       ...currentAddons,
       [key]: {
         ...currentAddons[key],
-        enabled: !currentAddons[key].enabled
+        ...extra,
+        enabled: willEnable
       }
     };
     saveAddons(updated);
@@ -48,10 +53,14 @@ export default function AdminAddons() {
 
   const saveModalSettings = () => {
     if (!activeModal) return;
+    const finalConfig = { ...modalConfig };
+    if (activeModal === "discord" && !finalConfig.inviteUrl?.trim()) {
+      finalConfig.inviteUrl = "https://discord.gg";
+    }
     const updated = {
       ...currentAddons,
       [activeModal]: {
-        ...modalConfig
+        ...finalConfig
       }
     };
     saveAddons(updated);
@@ -75,7 +84,9 @@ export default function AdminAddons() {
       id: "antibot",
       title: "Anti-Bot Security Suite",
       description: "Adds high-security visual CAPTCHA verification to prevent automated spam.",
-      icon: <ShieldAlert size={24} className="text-red-400" />
+      icon: <ShieldAlert size={24} className="text-red-400" />,
+      tag: "Beta",
+      tagBadgeClass: "bg-blue-500/15 text-blue-400 border border-blue-500/30"
     },
     {
       id: "maintenance",
@@ -87,7 +98,9 @@ export default function AdminAddons() {
       id: "analytics",
       title: "Server Analytics & Uptime",
       description: "Displays public or admin-only server health, RAM/CPU stats.",
-      icon: <Activity size={24} className="text-emerald-400" />
+      icon: <Activity size={24} className="text-emerald-400" />,
+      tag: "Alpha",
+      tagBadgeClass: "bg-amber-500/15 text-amber-400 border border-amber-500/30"
     }
   ];
 
@@ -131,7 +144,14 @@ export default function AdminAddons() {
                 </div>
               </div>
               
-              <h3 className="text-lg font-bold text-foreground mb-2">{addon.title}</h3>
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-lg font-bold text-foreground">{addon.title}</h3>
+                {addon.tag && (
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${addon.tagBadgeClass}`}>
+                    {addon.tag}
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground flex-1 mb-6">{addon.description}</p>
               
               <div className="flex items-center justify-between pt-4 border-t border-border-subtle mt-auto">
@@ -165,9 +185,16 @@ export default function AdminAddons() {
               className="relative bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden z-10"
             >
               <div className="p-5 border-b border-border-subtle flex justify-between items-center bg-muted/30">
-                <h3 className="font-bold text-lg text-foreground">
-                  {addonsList.find(a => a.id === activeModal)?.title} Settings
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-lg text-foreground">
+                    {addonsList.find(a => a.id === activeModal)?.title} Settings
+                  </h3>
+                  {addonsList.find(a => a.id === activeModal)?.tag && (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${addonsList.find(a => a.id === activeModal)?.tagBadgeClass}`}>
+                      {addonsList.find(a => a.id === activeModal)?.tag}
+                    </span>
+                  )}
+                </div>
                 <button onClick={() => setActiveModal(null)} className="text-muted-foreground hover:text-foreground">
                   <X size={20} />
                 </button>

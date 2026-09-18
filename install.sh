@@ -260,12 +260,10 @@ EOF
         sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u $USER --hp $HOME 2>/dev/null || pm2 startup 2>/dev/null || true
     fi
     
-    SERVER_IP=$(curl -s https://api.ipify.org 2>/dev/null || curl -s https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
-    
     echo ""
     log_success "=========================================================="
     log_success " Nova Panel has been successfully installed and started!"
-    log_success " Access URL : http://${SERVER_IP}:${PANEL_PORT}"
+    log_success " Access URL : YourDomain"
     log_success " Process    : pm2 logs nova-panel"
     log_success "=========================================================="
     echo ""

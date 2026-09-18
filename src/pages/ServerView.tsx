@@ -178,7 +178,7 @@ export default function ServerView() {
         </div>
 
         {/* Server Tabs Navigation List */}
-        <div className="flex-1 px-3 py-1 overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col gap-1">
+        <div className="flex-1 px-3 py-1 overflow-y-auto overflow-x-hidden no-scrollbar flex flex-col gap-1">
           {tabs.map(tab => {
             const isActive = tab.name === 'Terminal' 
               ? location.pathname === tab.path 
@@ -235,20 +235,52 @@ export default function ServerView() {
         </div>
       </div>
 
-      {/* Desktop Nebula Icon Sidebar (Visible on md and larger) */}
-      <div className="hidden md:flex w-[75px] flex-col items-center py-4 bg-gradient-to-b from-zinc-900/20 to-transparent backdrop-blur-[12px] border-r border-zinc-800/50 relative shrink-0">
+      {/* Desktop Server Management Sidebar (Visible on md and larger) */}
+      <aside className="hidden md:flex w-[240px] flex-col h-full bg-[#0d0f14] border-r border-zinc-800/80 relative shrink-0 z-30 select-none">
         
-        {/* Home */}
-        <div className="mb-4 w-full px-2">
-          <Link to="/" className="w-full h-[55px] flex items-center justify-center rounded-[10px] text-white hover:bg-zinc-800 transition-all relative group" title="Home">
-            <Home size={22} className="group-hover:translate-x-[3px] transition-transform" />
+        {/* Top: Back to Dashboard & Server Info */}
+        <div className="p-3.5 pb-2.5 border-b border-zinc-800/60 flex flex-col gap-2.5">
+          {/* Back to Dashboard Link */}
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-xs font-semibold text-zinc-400 hover:text-white transition-colors group px-1"
+            title="Back to Dashboard"
+          >
+            <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
+            <span>Dashboard</span>
           </Link>
+
+          {/* Server Info Header Card */}
+          <div className="flex items-center gap-2.5 p-2 rounded-xl bg-zinc-900/80 border border-zinc-800/80">
+            <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/25 flex items-center justify-center text-rose-400 shrink-0">
+              <ServerIcon size={16} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-white truncate" title={server.name || "Server"}>
+                {server.name || "Server"}
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+                <span
+                  className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse"
+                  style={{ backgroundColor: getStatusColor() }}
+                />
+                <span className="capitalize">{server.status || "offline"}</span>
+                <span className="text-zinc-600">•</span>
+                <span className="font-mono text-[10px] text-zinc-300">{server.port || "25565"}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="w-[75%] h-px bg-zinc-800/50 mb-4"></div>
+        {/* Navigation Section Title */}
+        <div className="px-4 pt-3 pb-1">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+            Server Options
+          </span>
+        </div>
 
-        {/* Server Tabs */}
-        <div className="flex-1 w-full px-2 overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col items-center gap-2">
+        {/* Server Tabs Navigation List with Names and NO SCROLLBAR */}
+        <div className="flex-1 px-2.5 py-1 overflow-y-auto no-scrollbar flex flex-col gap-1">
           {tabs.map(tab => {
             const isActive = tab.name === 'Terminal' 
               ? location.pathname === tab.path 
@@ -258,30 +290,41 @@ export default function ServerView() {
               <Link
                 key={tab.name}
                 to={tab.path}
-                title={tab.name}
-                className={`w-[55px] h-[55px] flex items-center justify-center rounded-[10px] transition-all relative group shrink-0
-                  ${isActive ? 'bg-rose-500/20 border border-rose-500/30' : 'text-white hover:bg-zinc-800'}`}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all font-medium text-xs
+                  ${isActive 
+                    ? 'bg-rose-500/15 border border-rose-500/30 text-white shadow-sm font-semibold' 
+                    : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60 border border-transparent'}`}
               >
-                <div className={`transition-transform duration-300 ${isActive ? 'text-white' : 'text-white group-hover:translate-x-[3px]'}`}>
-                  {React.cloneElement(tab.icon, { size: 22 })}
+                <div className={`shrink-0 ${isActive ? 'text-rose-400' : 'text-zinc-400'}`}>
+                  {React.cloneElement(tab.icon, { size: 16 })}
                 </div>
+                <span className="truncate">{tab.name}</span>
+                {isActive && (
+                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-rose-400" />
+                )}
               </Link>
             );
           })}
         </div>
 
-        <div className="w-[75%] h-px bg-zinc-800/50 mt-4 mb-4"></div>
-
-        {/* Account / Settings */}
-        <div className="w-full px-2 flex flex-col gap-2 pb-2">
-          <Link to="/admin/servers" className="w-[55px] h-[55px] flex items-center justify-center rounded-[10px] text-white hover:bg-zinc-800 transition-all relative group shrink-0" title="Manage Servers">
-            <Settings size={22} className="group-hover:translate-x-[3px] transition-transform" />
+        {/* Desktop Sidebar Bottom Quick Navigation */}
+        <div className="p-2.5 border-t border-zinc-800/60 bg-zinc-950/40 flex flex-col gap-1">
+          <Link 
+            to="/admin/servers" 
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition-colors"
+          >
+            <Settings size={15} className="text-zinc-400" />
+            <span className="truncate">Manage Servers</span>
           </Link>
-          <Link to="/settings" className="w-[55px] h-[55px] flex items-center justify-center rounded-[10px] text-white hover:bg-zinc-800 transition-all relative group shrink-0" title="Account">
-            <User size={22} className="group-hover:translate-x-[3px] transition-transform" />
+          <Link 
+            to="/settings" 
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition-colors"
+          >
+            <User size={15} className="text-zinc-400" />
+            <span className="truncate">Account</span>
           </Link>
         </div>
-      </div>
+      </aside>
 
       {/* Main Content Area */}
       

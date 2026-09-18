@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
+import { AccountModal } from "../components/AccountModal";
 
 // Attach token immediately if available
 const initialToken = typeof window !== "undefined" ? localStorage.getItem("jtg_token") : null;
@@ -24,6 +25,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(initialToken);
   const [loading, setLoading] = useState(true);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+
+  const openAccountModal = () => setIsAccountModalOpen(true);
+  const closeAccountModal = () => setIsAccountModalOpen(false);
 
   useEffect(() => {
     if (token) {
@@ -47,7 +52,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const interceptor = axios.interceptors.response.use(
       (response) => response,
       (error) => {
-        if (error.response?.status === 401 && !error.config?.url?.includes("/api/auth/me")) {
+        if (
+          error.response?.status === 401 && 
+          !error.config?.url?.includes("/api/auth/me") &&
+          !error.config?.url?.includes("/api/auth/password") &&
+          !error.config?.url?.includes("/api/auth/login")
+        ) {
           // Only clear if auth/me failed or explicit 401 from protected endpoint
           setToken(null);
           setUser(null);
@@ -87,9 +97,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser((prev: any) => (prev ? { ...prev, ...updatedFields } : prev));
   };
 
+  const updateToken = (newToken: string) => {
+    setToken(newToken);
+    localStorage.setItem("jtg_token", newToken);
+    axios.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading, refreshUser, updateUser }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      token, 
+      login, 
+      logout, 
+      loading, 
+      refreshUser, 
+      updateUser, 
+      updateToken,
+      isAccountModalOpen,
+      openAccountModal,
+      closeAccountModal
+    }}>
       {children}
+      {user && (
+        <AccountModal 
+          isOpen={isAccountModalOpen} 
+          onClose={closeAccountModal} 
+        />
+      )}
     </AuthContext.Provider>
   );
 };

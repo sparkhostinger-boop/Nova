@@ -884,6 +884,48 @@ export const installPlugin = async (req: Request, res: Response) => {
   }
 };
 
+export const getInstalledPlugins = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const serverDir = path.join(process.cwd(), ".data", "servers", id);
+    const pluginsDir = path.join(serverDir, "plugins");
+    if (!await fs.pathExists(pluginsDir)) {
+      return res.json({ plugins: [] });
+    }
+    const files = await fs.readdir(pluginsDir);
+    const jarFiles = await Promise.all(
+      files.filter(f => f.endsWith('.jar')).map(async f => {
+        const stats = await fs.stat(path.join(pluginsDir, f));
+        return {
+          filename: f,
+          size: stats.size,
+          updatedAt: stats.mtime
+        };
+      })
+    );
+    res.json({ plugins: jarFiles });
+  } catch(e: any) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
+export const deleteInstalledPlugin = async (req: Request, res: Response) => {
+  try {
+    const { id, filename } = req.params;
+    // Sanitize filename to prevent directory traversal
+    const safeFilename = path.basename(filename);
+    const serverDir = path.join(process.cwd(), ".data", "servers", id);
+    const pluginsDir = path.join(serverDir, "plugins");
+    const filePath = path.join(pluginsDir, safeFilename);
+    if (await fs.pathExists(filePath)) {
+      await fs.remove(filePath);
+    }
+    res.json({ success: true, message: "Plugin removed successfully" });
+  } catch(e: any) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
 export const installMod = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { pluginId, pluginName } = req.body; 

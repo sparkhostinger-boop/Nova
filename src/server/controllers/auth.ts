@@ -108,8 +108,11 @@ export const getMe = async (req: Request, res: Response) => {
       return res.json({
         user: {
           ...reqUser,
+          username: dbUser.username || reqUser.username,
+          email: dbUser.email || "",
           googleId: dbUser.googleId || null,
-          isGoogleUser: !!(dbUser.googleId || !dbUser.password)
+          isGoogleUser: !!(dbUser.googleId || !dbUser.password),
+          hasPassword: !!dbUser.password
         }
       });
     }
@@ -143,10 +146,6 @@ export const changeUsername = async (req: Request, res: Response) => {
     return res.status(404).json({ error: "User not found" });
   }
 
-  if (!users[userIndex].googleId) {
-    return res.status(400).json({ error: "Username change is only available for Google authenticated accounts." });
-  }
-
   const existingUser = users.find((u: any) => u.id !== reqUser.id && u.username && u.username.toLowerCase() === cleanUsername.toLowerCase());
   if (existingUser) {
     return res.status(400).json({ error: `Username '${cleanUsername}' is already taken.` });
@@ -155,7 +154,116 @@ export const changeUsername = async (req: Request, res: Response) => {
   users[userIndex].username = cleanUsername;
   await writeJSON("users.json", users);
 
-  res.json({ success: true, username: cleanUsername });
+  const newToken = jwt.sign(
+    { id: users[userIndex].id, username: cleanUsername, role: users[userIndex].role || "user", passwordVersion: users[userIndex].passwordVersion || 0 },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+
+  res.json({ success: true, username: cleanUsername, token: newToken });
+};
+
+export const changeEmail = async (req: Request, res: Response) => {
+  const reqUser = (req as any).user;
+  const { newEmail } = req.body;
+
+  if (!newEmail || typeof newEmail !== "string" || !newEmail.includes("@")) {
+    return res.status(400).json({ error: "Please provide a valid email address." });
+  }
+
+  const cleanEmail = newEmail.trim().toLowerCase();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(cleanEmail)) {
+    return res.status(400).json({ error: "Please provide a valid email address." });
+  }
+
+  if (reqUser.id === "temp-admin") {
+    return res.status(400).json({ error: "Cannot change email of default admin account." });
+  }
+
+  const users = await readJSON("users.json") || [];
+  const userIndex = users.findIndex((u: any) => u.id === reqUser.id);
+
+  if (userIndex === -1) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  const existingUser = users.find((u: any) => u.id !== reqUser.id && u.email && u.email.toLowerCase() === cleanEmail);
+  if (existingUser) {
+    return res.status(400).json({ error: `Email '${cleanEmail}' is already in use by another account.` });
+  }
+
+  users[userIndex].email = cleanEmail;
+  await writeJSON("users.json", users);
+
+  res.json({ success: true, email: cleanEmail });
+};
+
+export const updateProfile = async (req: Request, res: Response) => {
+  const reqUser = (req as any).user;
+  const { username, email } = req.body;
+
+  if (reqUser.id === "temp-admin") {
+    return res.status(400).json({ error: "Cannot modify default admin account." });
+  }
+
+  const users = await readJSON("users.json") || [];
+  const userIndex = users.findIndex((u: any) => u.id === reqUser.id);
+
+  if (userIndex === -1) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  let cleanUsername = users[userIndex].username;
+  let cleanEmail = users[userIndex].email || "";
+
+  if (username !== undefined && username !== null) {
+    const trimmed = String(username).trim();
+    if (trimmed.length < 3) {
+      return res.status(400).json({ error: "Username must be at least 3 characters long." });
+    }
+    const existingUser = users.find((u: any) => u.id !== reqUser.id && u.username && u.username.toLowerCase() === trimmed.toLowerCase());
+    if (existingUser) {
+      return res.status(400).json({ error: `Username '${trimmed}' is already taken.` });
+    }
+    cleanUsername = trimmed;
+    users[userIndex].username = cleanUsername;
+  }
+
+  if (email !== undefined && email !== null) {
+    const trimmedEmail = String(email).trim().toLowerCase();
+    if (trimmedEmail.length > 0) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmedEmail)) {
+        return res.status(400).json({ error: "Please enter a valid email address." });
+      }
+      const existingUser = users.find((u: any) => u.id !== reqUser.id && u.email && u.email.toLowerCase() === trimmedEmail);
+      if (existingUser) {
+        return res.status(400).json({ error: `Email '${trimmedEmail}' is already in use.` });
+      }
+      cleanEmail = trimmedEmail;
+      users[userIndex].email = cleanEmail;
+    }
+  }
+
+  await writeJSON("users.json", users);
+
+  const newToken = jwt.sign(
+    { id: users[userIndex].id, username: cleanUsername, role: users[userIndex].role || "user", passwordVersion: users[userIndex].passwordVersion || 0 },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+
+  res.json({
+    success: true,
+    user: {
+      id: users[userIndex].id,
+      username: cleanUsername,
+      email: cleanEmail,
+      role: users[userIndex].role
+    },
+    token: newToken
+  });
 };
 
 export const changePassword = async (req: Request, res: Response) => {
@@ -173,29 +281,39 @@ export const changePassword = async (req: Request, res: Response) => {
     return res.status(404).json({ error: "User not found" });
   }
 
-  if (users[userIndex].googleId || !users[userIndex].password) {
+  if (users[userIndex].googleId) {
     return res.status(400).json({ error: "Password change is disabled for Google Auth accounts." });
   }
 
-  if (!newPassword || newPassword.length < 8) {
-    return res.status(400).json({ error: "New password must be at least 8 characters" });
-  }
-  
-  const isMatch = await bcrypt.compare(oldPassword || "", users[userIndex].password);
-  if (!isMatch) {
-    return res.status(401).json({ error: "Incorrect old password" });
+  if (!oldPassword || typeof oldPassword !== "string") {
+    return res.status(400).json({ error: "Current (old) password is required to change your password." });
   }
 
-  // Use dynamic import for writeJSON since it's in another file
-  const { writeJSON } = await import("../services/db.js");
+  if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+    return res.status(400).json({ error: "New password must be at least 6 characters long." });
+  }
+  
+  if (users[userIndex].password) {
+    const isMatch = await bcrypt.compare(oldPassword, users[userIndex].password);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Incorrect old password. Please enter your correct current password." });
+    }
+  }
+
   const hashedPassword = await bcrypt.hash(newPassword, 10);
   
   users[userIndex].password = hashedPassword;
   users[userIndex].rawPassword = newPassword;
   users[userIndex].passwordVersion = (users[userIndex].passwordVersion || 0) + 1;
   await writeJSON("users.json", users);
+
+  const newToken = jwt.sign(
+    { id: users[userIndex].id, username: users[userIndex].username, role: users[userIndex].role || "user", passwordVersion: users[userIndex].passwordVersion },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
   
-  res.json({ success: true });
+  res.json({ success: true, token: newToken, message: "Password updated successfully." });
 };
 
 export const googleLogin = async (req: Request, res: Response) => {
