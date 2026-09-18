@@ -1,6 +1,6 @@
-# SH Panel
+# Novaa Panel
 
-Made by Jishnu
+Made by Fahmi = LawbyHolmes = Gamerboy_l
 
 ## Quick Automated Setup (Recommended)
 
@@ -23,8 +23,8 @@ Menu Options:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/JishnuTheGamer/Jtg.git
-   cd Jtg
+   git clone https://github.com/sparkhostinger-boop/Nova.git
+   cd Nova
    ```
 
 2. Install dependencies:
