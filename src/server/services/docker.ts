@@ -91,8 +91,15 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
 
   const serverType = serverData.type || "PAPER";
   const isProxy = ["VELOCITY", "BUNGEECORD", "WATERFALL"].includes(serverType.toUpperCase());
-  const shortImage = isProxy ? "itzg/bungeecord:latest" : "itzg/minecraft-server:latest";
-  const fullImage = isProxy ? "docker.io/itzg/bungeecord:latest" : "docker.io/itzg/minecraft-server:latest";
+  const isCustomEgg = Boolean(serverData.customEgg || serverData.eggId || serverData.dockerImage);
+  
+  let shortImage = isProxy ? "itzg/bungeecord:latest" : "itzg/minecraft-server:latest";
+  let fullImage = isProxy ? "docker.io/itzg/bungeecord:latest" : "docker.io/itzg/minecraft-server:latest";
+  
+  if (isCustomEgg && serverData.dockerImage) {
+    shortImage = serverData.dockerImage;
+    fullImage = serverData.dockerImage.includes("/") ? serverData.dockerImage : `docker.io/${serverData.dockerImage}`;
+  }
 
   const findImageId = async (): Promise<string | null> => {
     try {
@@ -176,7 +183,7 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
     envVars.push(`ONLINE_MODE=true`);
   }
 
-  if (!isProxy) {
+  if (!isProxy && !isCustomEgg) {
     envVars.push(
       `EULA=TRUE`,
       `ENABLE_RCON=true`,
@@ -185,6 +192,20 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
       `JVM_DD_OPTS=Paper.IgnoreWorldDataVersion=true,paper.ignoreWorldDataVersion=true`
     );
   }
+
+  if (isCustomEgg) {
+    envVars.push(
+      `STARTUP=${serverData.startupCommand || ""}`,
+      `SERVER_MEMORY=${serverData.ram * 1024}`,
+      `SERVER_PORT=${serverData.port}`,
+      `VERSION=${serverData.version || "latest"}`,
+      `EGG_NAME=${serverData.eggName || serverData.type || "Custom"}`
+    );
+  }
+
+  const mountTarget = isCustomEgg 
+    ? (serverData.mountDir || '/data') 
+    : (isProxy ? '/server' : '/data');
 
   const buildContainerOptions = (img: string) => ({
     Image: img,
@@ -204,7 +225,7 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
           }
         ]
       },
-      Binds: [`${serverDir}:${isProxy ? '/server' : '/data'}`]
+      Binds: [`${serverDir}:${mountTarget}`]
     }
   });
 
@@ -248,7 +269,27 @@ export const startContainer = async (containerId: string, nodeId?: string) => {
         await fs.ensureDir(serverDir);
         const type = (server.type || "PAPER").toUpperCase();
         
-        if (["VELOCITY", "BUNGEECORD", "WATERFALL"].includes(type)) {
+        if (server.customEgg) {
+          const infoPath = path.join(serverDir, "egg-config.json");
+          if (!fs.existsSync(infoPath)) {
+            await fs.writeJson(infoPath, {
+              eggName: server.eggName || server.type,
+              version: server.version,
+              port: server.port,
+              dockerImage: server.dockerImage,
+              startupCommand: server.startupCommand,
+              startedAt: new Date().toISOString()
+            }, { spaces: 2 });
+          }
+
+          if (server.dockerImage?.includes("node") && !fs.existsSync(path.join(serverDir, "index.js"))) {
+            await fs.writeFile(path.join(serverDir, "index.js"), `// Custom Node.js Egg Entrypoint\nconsole.log("Starting ${server.name} (${server.eggName || 'Node App'})...");\nconsole.log("Listening on port ${server.port}");\nsetInterval(() => {\n  console.log("[Status] Heartbeat OK - Active");\n}, 15000);\n`);
+          } else if (server.dockerImage?.includes("python") && !fs.existsSync(path.join(serverDir, "main.py"))) {
+            await fs.writeFile(path.join(serverDir, "main.py"), `# Custom Python Egg Entrypoint\nimport time\nprint("Starting ${server.name} (${server.eggName || 'Python Bot'})...")\nprint("Running on port ${server.port}")\nwhile True:\n    time.sleep(15)\n    print("[Status] Python loop alive")\n`);
+          } else if (!fs.existsSync(path.join(serverDir, "server.properties"))) {
+            await fs.writeFile(path.join(serverDir, "server.properties"), `server-port=${server.port}\nmotd=${server.motd || server.name}\nsoftware=${server.eggName || server.type}\nversion=${server.version}\n`);
+          }
+        } else if (["VELOCITY", "BUNGEECORD", "WATERFALL"].includes(type)) {
           const configName = type === "VELOCITY" ? "velocity.toml" : "config.yml";
           const configPath = path.join(serverDir, configName);
           if (!fs.existsSync(configPath)) {
@@ -257,13 +298,15 @@ export const startContainer = async (containerId: string, nodeId?: string) => {
         } else {
           const propsPath = path.join(serverDir, "server.properties");
           if (!fs.existsSync(propsPath)) {
-            await fs.writeFile(propsPath, "server-port=" + server.port + "\nmotd=A Minecraft Server\n");
+            await fs.writeFile(propsPath, "server-port=" + server.port + "\nmotd=" + (server.motd || "A Minecraft Server") + "\n");
           }
         }
       }
     } catch(e) {}
     
-    ioInstance?.to(`server_${id}`).emit("log", `[System] Server started (Sandbox Mode).\r\n`);
+    const serverObj = (await readJSON("servers.json") || []).find((s: any) => s.id === id);
+    const eggLabel = serverObj?.eggName ? ` [Egg: ${serverObj.eggName}]` : "";
+    ioInstance?.to(`server_${id}`).emit("log", `[System] Server started (Sandbox Mode)${eggLabel}.\r\n`);
     return;
   }
   const container = docker.getContainer(containerId);

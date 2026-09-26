@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Server, LayoutDashboard, Plus, LogOut, X, Settings, Key, User, Activity, Box, Search, Bell, Archive, Sliders, Puzzle, Palette } from "lucide-react";
+import { Server, LayoutDashboard, Plus, LogOut, X, Settings, Key, User, Activity, Box, Search, Bell, Archive, Sliders, Puzzle, Palette, Egg } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,7 +17,14 @@ export function Sidebar({ onClose, isCollapsed, toggleCollapse }: { onClose?: ()
   
   const isAdmin = user?.role === "admin" || user?.role === "owner";
 
-  const links = [
+  interface SidebarLink {
+    name: string;
+    path: string;
+    icon: React.ReactNode;
+    badge?: string;
+  }
+
+  const links: SidebarLink[] = [
     { name: "My Servers", path: "/", icon: <Server size={18} /> },
   ];
   
@@ -26,6 +33,7 @@ export function Sidebar({ onClose, isCollapsed, toggleCollapse }: { onClose?: ()
     links.push({ name: "Nodes", path: "/nodes", icon: <Activity size={18} /> });
     links.push({ name: "Create", path: "/servers/create", icon: <Plus size={18} /> });
     links.push({ name: "Manage", path: "/admin/servers", icon: <Box size={18} /> });
+    links.push({ name: "Eggs", path: "/admin/eggs", icon: <Egg size={18} />, badge: "BETA" });
     links.push({ name: "Options", path: "/admin/options", icon: <Sliders size={18} /> });
     links.push({ name: "Customization", path: "/admin/customization", icon: <Palette size={18} /> });
     links.push({ name: "Addons", path: "/admin/addons", icon: <Puzzle size={18} /> });
@@ -93,9 +101,16 @@ export function Sidebar({ onClose, isCollapsed, toggleCollapse }: { onClose?: ()
                 {link.icon}
               </div>
               {!isCollapsed && (
-                <span className={`ml-3 relative z-10 font-medium text-sm transition-colors duration-200 ${isActive ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>
-                  {link.name}
-                </span>
+                <div className="ml-3 relative z-10 flex items-center justify-between flex-1">
+                  <span className={`font-medium text-sm transition-colors duration-200 ${isActive ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>
+                    {link.name}
+                  </span>
+                  {(link as any).badge && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500 dark:text-amber-400 border border-amber-500/30 uppercase tracking-wider leading-none">
+                      {(link as any).badge}
+                    </span>
+                  )}
+                </div>
               )}
             </Link>
           );

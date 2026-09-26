@@ -23,6 +23,26 @@ router.use(requireAuth);
 
 router.get("/versions", async (req, res) => {
   const type = (req.query.type as string) || "PAPER";
+  const eggId = req.query.eggId as string;
+
+  if (eggId) {
+    const eggs = (await readJSON("eggs.json")) || [];
+    const egg = eggs.find((e: any) => e.id === eggId);
+    if (egg && Array.isArray(egg.versions) && egg.versions.length > 0) {
+      return res.json(egg.versions);
+    }
+  }
+
+  if (type.toUpperCase() === "CUSTOM") {
+    return res.json(["latest", "1.0.0"]);
+  }
+
+  const eggs = (await readJSON("eggs.json")) || [];
+  const matchedEgg = eggs.find((e: any) => e.id === type || e.name?.toUpperCase() === type.toUpperCase());
+  if (matchedEgg && Array.isArray(matchedEgg.versions) && matchedEgg.versions.length > 0) {
+    return res.json(matchedEgg.versions);
+  }
+
   const versions = await getVersions(type);
   res.json(versions);
 });

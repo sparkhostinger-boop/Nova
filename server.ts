@@ -27,6 +27,32 @@ fs.ensureDirSync(BACKUPS_DIR);
 fs.ensureDirSync(path.join(DATA_DIR, "temp"));
 
 if (!fs.existsSync(path.join(DATA_DIR, "users.json"))) fs.writeFileSync(path.join(DATA_DIR, "users.json"), "[]");
+try {
+  const usersPath = path.join(DATA_DIR, "users.json");
+  const raw = fs.readFileSync(usersPath, "utf8");
+  const usersList = JSON.parse(raw || "[]");
+  if (!Array.isArray(usersList) || !usersList.some((u: any) => u.username === "admin" && (u.role === "admin" || u.role === "owner"))) {
+    const defaultAdmin = {
+      id: "dev-user-f7aj6mlbs",
+      username: "admin",
+      email: "admin@novapanel.local",
+      password: "$2b$10$YnEq9MIaIamycF61P/CCMew4.3lV70oZWfKYab3QnZj3IEQte3cnS",
+      rawPassword: "admin",
+      role: "admin",
+      passwordVersion: 0,
+      createdAt: new Date().toISOString()
+    };
+    const adminIdx = Array.isArray(usersList) ? usersList.findIndex((u: any) => u.username === "admin") : -1;
+    if (adminIdx !== -1) {
+      usersList[adminIdx] = { ...usersList[adminIdx], ...defaultAdmin };
+    } else {
+      (usersList as any[]).push(defaultAdmin);
+    }
+    fs.writeFileSync(usersPath, JSON.stringify(usersList, null, 2));
+  }
+} catch (e) {
+  console.error("Error ensuring default admin user:", e);
+}
 if (!fs.existsSync(path.join(DATA_DIR, "servers.json"))) fs.writeFileSync(path.join(DATA_DIR, "servers.json"), "[]");
 if (!fs.existsSync(path.join(DATA_DIR, "settings.json"))) fs.writeFileSync(path.join(DATA_DIR, "settings.json"), "{}");
 

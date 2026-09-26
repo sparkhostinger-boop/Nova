@@ -24,7 +24,16 @@ import {
   Feather,
   CheckCircle2,
   TerminalSquare,
-  Unlock
+  Unlock,
+  Egg,
+  Code2,
+  Tag,
+  Upload,
+  ExternalLink,
+  Terminal,
+  Sliders,
+  Copy,
+  Plus
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import SearchableDropdown from "../components/SearchableDropdown";
@@ -36,6 +45,7 @@ export default function CreateServer() {
     { id: "BUNGEECORD", name: "BungeeCord", desc: "Classic Proxy", icon: Network, color: "text-orange-400", bg: "bg-orange-400/10", border: "border-orange-400/20", activeRing: "ring-orange-500/50", glow: "to-orange-500/10" },
     { id: "FORGE", name: "Forge", desc: "Modded Minecraft", icon: Wrench, color: "text-stone-400", bg: "bg-stone-400/10", border: "border-stone-400/20", activeRing: "ring-stone-500/50", glow: "to-stone-500/10" },
     { id: "FABRIC", name: "Fabric", desc: "Lightweight Mods", icon: Feather, color: "text-amber-200", bg: "bg-amber-200/10", border: "border-amber-200/20", activeRing: "ring-amber-300/50", glow: "to-amber-300/10" },
+    { id: "CUSTOM", name: "Custom", desc: "Custom Eggs & Specs", icon: Egg, color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20", activeRing: "ring-purple-500/50", glow: "to-purple-500/10", badge: "BETA" },
   ];
 
   const [step, setStep] = useState(1);
@@ -60,6 +70,19 @@ export default function CreateServer() {
   const [nodes, setNodes] = useState<any[]>([]);
   const [versions, setVersions] = useState<string[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+
+  // Custom Egg State
+  const [eggs, setEggs] = useState<any[]>([]);
+  const [selectedEggId, setSelectedEggId] = useState<string>("");
+  const [eggSearch, setEggSearch] = useState<string>("");
+  const [eggCategoryFilter, setEggCategoryFilter] = useState<string>("ALL");
+  const [customDockerImage, setCustomDockerImage] = useState<string>("");
+  const [customStartupCommand, setCustomStartupCommand] = useState<string>("");
+  const [showVersionImport, setShowVersionImport] = useState(false);
+  const [newVersionInput, setNewVersionInput] = useState("");
+  const [bulkVersionInput, setBulkVersionInput] = useState("");
+  const [versionSuccessMsg, setVersionSuccessMsg] = useState<string | null>(null);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
   
   const [loading, setLoading] = useState(false);
   const [createProgress, setCreateProgress] = useState(0);
@@ -86,12 +109,56 @@ export default function CreateServer() {
     setCpu(autoCpu.toString());
   };
 
+  const selectedEgg = eggs.find(e => e.id === selectedEggId) || eggs[0] || null;
+
+  // Load eggs from API
+  const loadEggs = async () => {
+    try {
+      const res = await axios.get("/api/eggs");
+      setEggs(res.data);
+      const params = new URLSearchParams(window.location.search);
+      const urlEggId = params.get("eggId");
+      if (urlEggId) {
+        setType("CUSTOM");
+        setSelectedEggId(urlEggId);
+        const match = res.data.find((e: any) => e.id === urlEggId);
+        if (match) {
+          if (match.defaultPort && port === "25565") setPort(String(match.defaultPort));
+          if (match.versions?.length > 0) setVersion(match.versions[0]);
+          setCustomDockerImage(match.dockerImage || "");
+          setCustomStartupCommand(match.startupCommand || "");
+        }
+      } else if (res.data.length > 0 && !selectedEggId) {
+        setSelectedEggId(res.data[0].id);
+      }
+    } catch (e) {}
+  };
+
   useEffect(() => {
+    loadEggs();
+  }, []);
+
+  useEffect(() => {
+    if (type === "CUSTOM") {
+      if (selectedEgg) {
+        const vList = selectedEgg.versions && selectedEgg.versions.length > 0 
+          ? selectedEgg.versions 
+          : ["latest"];
+        setVersions(vList);
+        if (!vList.includes(version)) {
+          setVersion(vList[0]);
+        }
+        setCustomDockerImage(selectedEgg.dockerImage || "");
+        setCustomStartupCommand(selectedEgg.startupCommand || "");
+      }
+      return;
+    }
+
     axios.get(`/api/system/versions?type=${type}`).then((res) => {
       setVersions(res.data);
       if (res.data.length > 0) setVersion(res.data[0]);
     });
-  }, [type]);
+  }, [type, selectedEggId]);
 
   useEffect(() => {
     axios
@@ -162,6 +229,17 @@ export default function CreateServer() {
         cracked,
       };
 
+      if (type === "CUSTOM" && selectedEgg) {
+        payload.type = selectedEgg.name;
+        payload.customEgg = true;
+        payload.eggId = selectedEgg.id;
+        payload.eggName = selectedEgg.name;
+        payload.dockerImage = customDockerImage || selectedEgg.dockerImage;
+        payload.startupCommand = customStartupCommand || selectedEgg.startupCommand;
+        payload.stopCommand = selectedEgg.stopCommand;
+        payload.mountDir = selectedEgg.mountDir || "/data";
+      }
+
       if (owner) payload.owner = owner;
       if (nodeId) payload.nodeId = nodeId;
 
@@ -177,6 +255,62 @@ export default function CreateServer() {
     }
   };
   
+  const handleCopyText = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedText(id);
+    setTimeout(() => setCopiedText(null), 2000);
+  };
+
+  const handleAddEggVersion = async () => {
+    if (!selectedEgg || !newVersionInput.trim()) return;
+    try {
+      const res = await axios.post(`/api/eggs/${selectedEgg.id}/versions`, {
+        version: newVersionInput.trim()
+      });
+      const updatedVersions = res.data.versions || [];
+      setVersionSuccessMsg(`Added version "${newVersionInput.trim()}"`);
+      setTimeout(() => setVersionSuccessMsg(null), 3000);
+      setNewVersionInput("");
+      setEggs(prev => prev.map(e => e.id === selectedEgg.id ? { ...e, versions: updatedVersions } : e));
+      setVersions(updatedVersions);
+      setVersion(newVersionInput.trim());
+    } catch (e: any) {
+      setError(e.response?.data?.error || "Failed to add version");
+    }
+  };
+
+  const handleBulkImportEggVersions = async () => {
+    if (!selectedEgg || !bulkVersionInput.trim()) return;
+    try {
+      const res = await axios.post(`/api/eggs/${selectedEgg.id}/versions`, {
+        versions: bulkVersionInput.trim()
+      });
+      const updatedVersions = res.data.versions || [];
+      setVersionSuccessMsg(`Imported ${res.data.addedCount || 'new'} version(s)!`);
+      setTimeout(() => setVersionSuccessMsg(null), 3000);
+      setBulkVersionInput("");
+      setShowVersionImport(false);
+      setEggs(prev => prev.map(e => e.id === selectedEgg.id ? { ...e, versions: updatedVersions } : e));
+      setVersions(updatedVersions);
+      if (updatedVersions.length > 0) {
+        setVersion(updatedVersions[0]);
+      }
+    } catch (e: any) {
+      setError(e.response?.data?.error || "Failed to import versions");
+    }
+  };
+
+  const eggCategories = ["ALL", ...Array.from(new Set(eggs.map(e => e.category || "General")))];
+
+  const filteredEggList = eggs.filter(e => {
+    const matchesSearch = 
+      e.name.toLowerCase().includes(eggSearch.toLowerCase()) ||
+      (e.description && e.description.toLowerCase().includes(eggSearch.toLowerCase())) ||
+      (e.dockerImage && e.dockerImage.toLowerCase().includes(eggSearch.toLowerCase()));
+    const matchesCat = eggCategoryFilter === "ALL" || e.category === eggCategoryFilter;
+    return matchesSearch && matchesCat;
+  });
+
   const renderStepIndicator = () => {
     return (
       <div className="flex items-center justify-between mb-8 relative">
@@ -402,10 +536,21 @@ export default function CreateServer() {
             )}
 
             {step === 4 && (
-              <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                <h2 className="text-xl font-bold mb-4 flex items-center"><Box className="w-5 h-5 mr-2 text-indigo-400" /> Software Selection</h2>
+              <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold flex items-center"><Box className="w-5 h-5 mr-2 text-indigo-400" /> Software Selection</h2>
+                  {type === "CUSTOM" && (
+                    <Link
+                      to="/admin/eggs"
+                      target="_blank"
+                      className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 hover:underline"
+                    >
+                      <ExternalLink size={12} /> Open Egg Manager
+                    </Link>
+                  )}
+                </div>
                 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                   {SOFTWARE_TYPES.map((soft) => {
                     const isSelected = type === soft.id;
                     const Icon = soft.icon;
@@ -413,8 +558,13 @@ export default function CreateServer() {
                       <button
                         key={soft.id}
                         type="button"
-                        onClick={() => setType(soft.id)}
-                        className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-200 relative overflow-hidden group ${
+                        onClick={() => {
+                          setType(soft.id);
+                          if (soft.id === "CUSTOM" && eggs.length > 0 && !selectedEggId) {
+                            setSelectedEggId(eggs[0].id);
+                          }
+                        }}
+                        className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-200 relative overflow-hidden group cursor-pointer ${
                           isSelected 
                             ? `${soft.bg} ${soft.border} ring-1 ${soft.activeRing} shadow-lg` 
                             : "bg-muted-subtle border-border-subtle hover:border-border-strong hover:bg-muted"
@@ -422,7 +572,13 @@ export default function CreateServer() {
                       >
                         {isSelected && <div className={`absolute inset-0 bg-gradient-to-br from-transparent ${soft.glow}`} />}
                         
-                        <Icon className={`w-6 h-6 mb-2 ${isSelected ? soft.color : "text-muted-foreground group-hover:text-foreground-muted"} transition-colors relative z-10`} />
+                        {(soft as any).badge && (
+                          <span className="absolute top-1.5 left-1.5 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30 leading-none z-10">
+                            {(soft as any).badge}
+                          </span>
+                        )}
+
+                        <Icon className={`w-6 h-6 mb-1.5 ${isSelected ? soft.color : "text-muted-foreground group-hover:text-foreground-muted"} transition-colors relative z-10`} />
                         <span className={`text-xs font-bold relative z-10 ${isSelected ? "text-foreground" : "text-foreground-muted"}`}>{soft.name}</span>
                         <span className={`text-[9px] text-center mt-0.5 relative z-10 ${isSelected ? "text-foreground/70" : "text-muted-foreground"}`}>{soft.desc}</span>
                         
@@ -436,19 +592,249 @@ export default function CreateServer() {
                   })}
                 </div>
 
-                <div className="pt-2 border-t border-border-subtle">
-                  <label className="block text-sm font-medium text-foreground-muted mb-2 flex items-center">
-                    <Box className="w-4 h-4 mr-2 text-cyan-400" /> Software Version
-                  </label>
-                  <SearchableDropdown
-                    value={version}
-                    onChange={setVersion}
-                    options={versions.map(v => ({ value: v, label: v }))}
-                    placeholder="Select a version..."
-                    searchPlaceholder="Search versions..."
-                    className="font-mono"
-                  />
-                </div>
+                {/* CUSTOM EGG SELECTION & SPECS */}
+                {type === "CUSTOM" ? (
+                  <div className="space-y-4 pt-2 border-t border-border-subtle">
+                    {/* Filter & Search Bar */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                      <div className="relative w-full sm:w-64">
+                        <input
+                          type="text"
+                          placeholder="Search custom eggs..."
+                          value={eggSearch}
+                          onChange={(e) => setEggSearch(e.target.value)}
+                          className="w-full bg-muted border border-border rounded-xl px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto pb-0.5 custom-scrollbar">
+                        {eggCategories.map(cat => (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => setEggCategoryFilter(cat)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                              eggCategoryFilter === cat
+                                ? "bg-indigo-600 text-white"
+                                : "bg-muted text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Egg Cards Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto custom-scrollbar p-1">
+                      {filteredEggList.map((egg) => {
+                        const isChosen = (selectedEgg?.id || "") === egg.id;
+                        return (
+                          <div
+                            key={egg.id}
+                            onClick={() => {
+                              setSelectedEggId(egg.id);
+                              if (egg.versions && egg.versions.length > 0) {
+                                setVersion(egg.versions[0]);
+                              }
+                            }}
+                            className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
+                              isChosen
+                                ? "bg-indigo-500/10 border-indigo-500/40 ring-1 ring-indigo-500/30 shadow-sm"
+                                : "bg-muted/40 border-border hover:bg-muted/70"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <span className="text-xs font-bold text-foreground truncate">{egg.name}</span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-400">
+                                  {egg.category}
+                                </span>
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30">
+                                  BETA
+                                </span>
+                                {egg.custom && (
+                                  <span className="text-[10px] font-semibold px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-400">
+                                    Custom
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground line-clamp-1 mb-2">
+                              {egg.description || "No description."}
+                            </p>
+                            <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
+                              <span className="truncate max-w-[150px]">{egg.dockerImage}</span>
+                              <span className="text-indigo-400 font-bold">Port :{egg.defaultPort}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Selected Egg Specifications Card */}
+                    {selectedEgg && (
+                      <div className="bg-muted/30 border border-border rounded-xl p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                            <Sliders size={14} /> Egg Specifications: {selectedEgg.name}
+                            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30">
+                              BETA
+                            </span>
+                          </h3>
+                          {Number(port) !== selectedEgg.defaultPort && (
+                            <button
+                              type="button"
+                              onClick={() => setPort(String(selectedEgg.defaultPort))}
+                              className="text-[11px] font-medium text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+                            >
+                              Set Port to :{selectedEgg.defaultPort}
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                          {/* Docker Image */}
+                          <div className="p-2.5 bg-card rounded-lg border border-border-subtle">
+                            <span className="text-muted-foreground text-[10px] block mb-0.5">Docker Image</span>
+                            <div className="flex items-center justify-between gap-1 font-mono text-[11px]">
+                              <span className="truncate text-foreground" title={selectedEgg.dockerImage}>{selectedEgg.dockerImage}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyText(selectedEgg.dockerImage, "docker-img")}
+                                className="text-muted-foreground hover:text-foreground cursor-pointer p-0.5"
+                                title="Copy image"
+                              >
+                                {copiedText === "docker-img" ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Default Port */}
+                          <div className="p-2.5 bg-card rounded-lg border border-border-subtle">
+                            <span className="text-muted-foreground text-[10px] block mb-0.5">Default Port</span>
+                            <span className="font-mono text-[11px] text-foreground font-bold">:{selectedEgg.defaultPort}</span>
+                          </div>
+
+                          {/* Mount Dir */}
+                          <div className="p-2.5 bg-card rounded-lg border border-border-subtle">
+                            <span className="text-muted-foreground text-[10px] block mb-0.5">Data Mount</span>
+                            <span className="font-mono text-[11px] text-foreground">{selectedEgg.mountDir || "/data"}</span>
+                          </div>
+                        </div>
+
+                        {/* Startup Command */}
+                        <div className="p-2.5 bg-card rounded-lg border border-border-subtle">
+                          <span className="text-muted-foreground text-[10px] block mb-0.5 font-sans">Startup Command</span>
+                          <p className="font-mono text-[11px] text-foreground/90 break-all bg-muted/40 p-2 rounded border border-border-subtle">
+                            {selectedEgg.startupCommand || "Default container entrypoint"}
+                          </p>
+                        </div>
+
+                        {/* Software Version Selection & Inline Importer */}
+                        <div className="pt-2 border-t border-border-subtle">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                              <Tag size={13} className="text-indigo-400" /> Software Version
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setShowVersionImport(!showVersionImport)}
+                              className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer font-medium"
+                            >
+                              <Plus size={12} /> {showVersionImport ? "Hide Importer" : "Import / Add Version"}
+                            </button>
+                          </div>
+
+                          {versionSuccessMsg && (
+                            <div className="mb-2 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-1.5">
+                              <Check size={14} /> {versionSuccessMsg}
+                            </div>
+                          )}
+
+                          <SearchableDropdown
+                            value={version}
+                            onChange={setVersion}
+                            options={versions.map(v => ({ value: v, label: v }))}
+                            placeholder="Select version..."
+                            searchPlaceholder="Search versions..."
+                            className="font-mono"
+                          />
+
+                          {/* Expandable Version Importer */}
+                          <AnimatePresence>
+                            {showVersionImport && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="mt-3 p-3 bg-card border border-border rounded-xl space-y-3 overflow-hidden"
+                              >
+                                <div className="text-xs font-semibold text-foreground flex items-center gap-1">
+                                  <Upload size={13} className="text-indigo-400" /> Import or Add Versions for {selectedEgg.name}
+                                </div>
+                                
+                                {/* Single Version Input */}
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Add single version (e.g. 1.21.3 or v2.0.0)"
+                                    value={newVersionInput}
+                                    onChange={(e) => setNewVersionInput(e.target.value)}
+                                    className="flex-1 bg-muted border border-border rounded-lg px-3 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:border-indigo-500"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={handleAddEggVersion}
+                                    disabled={!newVersionInput.trim()}
+                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                                  >
+                                    Add
+                                  </button>
+                                </div>
+
+                                {/* Bulk Import Textarea */}
+                                <div>
+                                  <span className="text-[11px] text-muted-foreground block mb-1">
+                                    Or paste multiple comma-separated versions:
+                                  </span>
+                                  <textarea
+                                    rows={2}
+                                    placeholder="1.21.3, 1.21.2, 1.21.1, 1.20.4"
+                                    value={bulkVersionInput}
+                                    onChange={(e) => setBulkVersionInput(e.target.value)}
+                                    className="w-full bg-muted border border-border rounded-lg p-2 text-xs font-mono text-foreground focus:outline-none focus:border-indigo-500 resize-none mb-1.5"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={handleBulkImportEggVersions}
+                                    disabled={!bulkVersionInput.trim()}
+                                    className="w-full py-1 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                                  >
+                                    Bulk Import Versions
+                                  </button>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="pt-2 border-t border-border-subtle">
+                    <label className="block text-sm font-medium text-foreground-muted mb-2 flex items-center">
+                      <Box className="w-4 h-4 mr-2 text-cyan-400" /> Software Version
+                    </label>
+                    <SearchableDropdown
+                      value={version}
+                      onChange={setVersion}
+                      options={versions.map(v => ({ value: v, label: v }))}
+                      placeholder="Select a version..."
+                      searchPlaceholder="Search versions..."
+                      className="font-mono"
+                    />
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

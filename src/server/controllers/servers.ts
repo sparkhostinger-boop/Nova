@@ -80,10 +80,16 @@ export const createServer = async (req: Request, res: Response) => {
   if (user.role !== "admin" && user.role !== "owner") {
     return res.status(403).json({ error: "Only admins can create servers" });
   }
-  const { name, ram, port, version, theme, cpu, disk, owner, ipAlias, type, nodeId, motd, cracked } = req.body;
+  const { name, ram, port, version, theme, cpu, disk, owner, ipAlias, type, nodeId, motd, cracked, eggId, startupCommand, dockerImage, stopCommand, mountDir, customEgg } = req.body;
   if (!name || !ram || !port) {
     res.status(400).json({ error: "Missing required fields (name, ram, port)" });
     return;
+  }
+
+  let resolvedEgg: any = null;
+  if (eggId) {
+    const eggs = (await readJSON("eggs.json")) || [];
+    resolvedEgg = eggs.find((e: any) => e.id === eggId);
   }
 
   const id = crypto.randomUUID();
@@ -97,11 +103,19 @@ export const createServer = async (req: Request, res: Response) => {
     port,
     ipAlias: ipAlias || "",
     nodeId: nodeId || "local",
-    type: type || "PAPER",
-    version: version || "1.21.1",
+    type: resolvedEgg ? (resolvedEgg.name || type) : (type || "PAPER"),
+    software: resolvedEgg ? resolvedEgg.name : (type || "PAPER"),
+    version: version || (resolvedEgg?.versions?.[0] || "1.21.1"),
     theme: theme || "default",
     motd: motd || "",
     cracked: cracked || false,
+    eggId: eggId || (resolvedEgg ? resolvedEgg.id : null),
+    eggName: resolvedEgg ? resolvedEgg.name : null,
+    customEgg: Boolean(customEgg || resolvedEgg),
+    dockerImage: dockerImage || resolvedEgg?.dockerImage || null,
+    startupCommand: startupCommand || resolvedEgg?.startupCommand || null,
+    stopCommand: stopCommand || resolvedEgg?.stopCommand || null,
+    mountDir: mountDir || resolvedEgg?.mountDir || "/data",
     status: "installing",
     createdAt: new Date().toISOString(),
     containerId: null as string | null,
