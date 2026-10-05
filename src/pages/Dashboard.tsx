@@ -12,9 +12,9 @@ export default function Dashboard() {
   const realServers = Array.isArray(rawServers) ? rawServers : [];
   const { panelName } = useSettings();
   
-  const pName = panelName || 'SH PANEL';
+  const pName = panelName || 'Nova Panel';
   const nameParts = pName.split(' ');
-  const firstWord = nameParts[0]?.toUpperCase() || 'SH';
+  const firstWord = nameParts[0]?.toUpperCase() || 'NOVA';
   const restWords = nameParts.slice(1).join(' ').toUpperCase();
 
   // Scroll reveal animation

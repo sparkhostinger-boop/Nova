@@ -28,6 +28,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     if (path === '/admin/options' || path === '/options') return 'Options';
     if (path === '/admin/addons' || path === '/addons') return 'Addons';
     if (path === '/admin/backups' || path === '/backups') return 'Backups';
+    if (path === '/admin/logs' || path === '/logs') return 'Audit Logs';
     if (path === '/users') return 'Users';
     if (path === '/nodes') return 'Nodes';
     if (path === '/settings') return 'Settings';
@@ -161,9 +162,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
           
           {isFooterEnabled && (
-            <footer className="w-full py-6 px-4 mt-auto border-t border-border-subtle bg-card/50 text-center text-sm text-muted-foreground">
-              {footerAddon.startYear}
-              {footerAddon.endYear ? ` - ${footerAddon.endYear}` : ` - ${currentYear}`} {footerAddon.customText}
+            <footer className="w-full py-4 px-4 mt-auto border-t border-border-subtle bg-card/50 text-center text-xs sm:text-sm text-muted-foreground">
+              &copy; {footerAddon.startYear || "2015"}
+              {footerAddon.endYear ? ` - ${footerAddon.endYear}` : ` - ${currentYear}`} {footerAddon.customText?.trim() || "Nova Panel Software"}
             </footer>
           )}
         </main>

@@ -23,6 +23,7 @@ import AdminBackups from "./pages/AdminBackups";
 import AdminOptions from "./pages/AdminOptions";
 import AdminAddons from "./pages/AdminAddons";
 import AdminEggs from "./pages/AdminEggs";
+import AdminLogs from "./pages/AdminLogs";
 import Layout from "./components/Layout";
 import { motion, AnimatePresence } from "framer-motion";
 import { SettingsProvider, useSettings } from "./context/SettingsContext";
@@ -95,6 +96,8 @@ const AnimatedRoutes = () => {
           <Route path="/addons" element={<AdminRoute><AdminAddons /></AdminRoute>} />
           <Route path="/admin/backups" element={<AdminRoute><AdminBackups /></AdminRoute>} />
           <Route path="/backups" element={<AdminRoute><AdminBackups /></AdminRoute>} />
+          <Route path="/admin/logs" element={<AdminRoute><AdminLogs /></AdminRoute>} />
+          <Route path="/logs" element={<AdminRoute><AdminLogs /></AdminRoute>} />
         </Routes>
       </motion.div>
     </AnimatePresence>

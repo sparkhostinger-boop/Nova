@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Search, Server, LayoutDashboard, Plus, Settings, Key, Activity, X, ChevronRight, Terminal, ArrowRight, CornerDownLeft, Sliders, Archive } from "lucide-react";
+import { Search, Server, LayoutDashboard, Plus, Settings, Key, Activity, X, ChevronRight, Terminal, ArrowRight, CornerDownLeft, Sliders, Archive, ScrollText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
@@ -70,6 +70,14 @@ const STATIC_NAV_LINKS: QuickLink[] = [
     category: "Navigation",
     icon: <Archive className="w-4 h-4 text-teal-400" />,
     path: "/admin/backups"
+  },
+  {
+    id: "nav-logs",
+    title: "Audit Logs",
+    subtitle: "Server starts, stops, restarts, & file deletions",
+    category: "Navigation",
+    icon: <ScrollText className="w-4 h-4 text-amber-400" />,
+    path: "/admin/logs"
   },
   {
     id: "nav-settings",

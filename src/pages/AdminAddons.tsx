@@ -1,8 +1,9 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSettings } from "../context/SettingsContext";
 import axios from "axios";
-import { Plus, X, Settings, Check, ShieldAlert, MessageSquare, LayoutTemplate, Activity, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Plus, X, Settings, Check, ShieldAlert, MessageSquare, LayoutTemplate, Activity, AlertTriangle, ShieldCheck, Palette, ExternalLink } from "lucide-react";
 
 export default function AdminAddons() {
   const { addons, setAddons } = useSettings();
@@ -12,6 +13,7 @@ export default function AdminAddons() {
   const [modalConfig, setModalConfig] = useState<any>({});
   
   const defaultAddonsConfig = {
+    theme: { enabled: true, activeTheme: "nova-classic" },
     footer: { enabled: false, startYear: "2024", endYear: "", customText: "Powered by Nova Panel | All Rights Reserved" },
     discord: { enabled: false, inviteUrl: "https://discord.gg", position: "Top-Right", buttonStyle: "Standard" },
     antibot: { enabled: false, targetPages: ["login", "register"], captchaMode: "Random", maxRetries: 3 },
@@ -68,6 +70,14 @@ export default function AdminAddons() {
   };
 
   const addonsList = [
+    {
+      id: "theme",
+      title: "Theme",
+      description: "Inbuilt theme suite & visual customization engine for the panel.",
+      icon: <Palette size={24} className="text-purple-400" />,
+      tag: "v1.2.0",
+      tagBadgeClass: "bg-purple-500/15 text-purple-400 border border-purple-500/30"
+    },
     {
       id: "footer",
       title: "Server Footer Addon",
@@ -201,6 +211,41 @@ export default function AdminAddons() {
               </div>
               
               <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                {activeModal === "theme" && (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-300">
+                      <p className="font-bold text-sm text-foreground mb-1">Theme Extension & Customization</p>
+                      <p className="text-muted-foreground leading-relaxed">
+                        Enables the panel theme engine, allowing admins to toggle inbuilt themes, customize accent colors, and configure backgrounds.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-muted/60 border border-border-subtle">
+                      <div>
+                        <span className="text-sm font-semibold text-foreground block">Theme Engine Status</span>
+                        <span className="text-xs text-muted-foreground">Master toggle for custom themes panel-wide</span>
+                      </div>
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${
+                        modalConfig.enabled !== false 
+                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                          : "bg-red-500/10 text-red-400 border border-red-500/20"
+                      }`}>
+                        {modalConfig.enabled !== false ? "Active" : "Disabled"}
+                      </span>
+                    </div>
+
+                    <div className="pt-2">
+                      <Link
+                        to="/admin/customization"
+                        onClick={() => setActiveModal(null)}
+                        className="w-full py-2.5 px-4 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 transition-all"
+                      >
+                        <Palette size={16} /> Open Theme Customization Studio ↗
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
                 {activeModal === "footer" && (
                   <>
                     <div className="grid grid-cols-2 gap-4">

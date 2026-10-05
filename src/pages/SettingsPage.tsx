@@ -4,7 +4,7 @@ import axios from "axios";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield, User, Trash2, Layout, Upload, RefreshCw, Key, CheckCircle2, AlertCircle, Globe, Sparkles, ExternalLink, Settings } from "lucide-react";
+import { User, Layout, Upload, RefreshCw, Key, CheckCircle2, AlertCircle, Globe, Sparkles, ExternalLink, Settings } from "lucide-react";
 import { LoadingOverlay } from "../components/LoadingOverlay";
 
 export default function SettingsPage(): React.ReactElement {
@@ -15,13 +15,6 @@ export default function SettingsPage(): React.ReactElement {
     firebaseStorageBucket, firebaseMessagingSenderId, firebaseAppId, 
     fetchSettings 
   } = useSettings();
-  
-  const [users, setUsers] = useState<any[]>([]);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState("user");
-  const [isCreatingUser, setIsCreatingUser] = useState(false);
-  const [isDeletingUser, setIsDeletingUser] = useState<string | null>(null);
 
   const [newPanelName, setNewPanelName] = useState<string>(panelName || "Nova Panel");
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -48,17 +41,6 @@ export default function SettingsPage(): React.ReactElement {
   const [isChangingUsername, setIsChangingUsername] = useState(false);
   const [usernameMsg, setUsernameMsg] = useState<{text: string; type: "success"|"error"} | null>(null);
 
-  const fetchUsers = async () => {
-    try {
-      const res = await axios.get("/api/system/users");
-      setUsers(res.data);
-    } catch (e) {}
-  };
-
-  useEffect(() => {
-    fetchUsers();
-  }, [user]);
-
   useEffect(() => {
     setNewPanelName(panelName || "Nova Panel");
   }, [panelName]);
@@ -68,46 +50,6 @@ export default function SettingsPage(): React.ReactElement {
       setCustomGoogleClientId(googleClientId || "");
     }
   }, [googleClientId]);
-
-  const createUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsCreatingUser(true);
-    try {
-      await axios.post("/api/system/users", { username, password, role });
-      setUsername("");
-      setPassword("");
-      fetchUsers();
-      alert("User created successfully");
-    } catch (e: any) {
-      alert(e.response?.data?.error || "Error creating user");
-    } finally {
-      setIsCreatingUser(false);
-    }
-  };
-
-  const changeUserPassword = async (id: string) => {
-    try {
-      const newPwd = prompt("Enter new password for this user:");
-      if (!newPwd) return;
-      await axios.put(`/api/system/users/${id}/password`, { newPassword: newPwd });
-      alert("Password updated");
-    } catch (e: any) {
-      alert(e.response?.data?.error || "Error updating password");
-    }
-  };
-
-  const deleteUser = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this user?")) return;
-    setIsDeletingUser(id);
-    try {
-      await axios.delete(`/api/system/users/${id}`);
-      fetchUsers();
-    } catch (e: any) {
-      alert(e.response?.data?.error || "Error deleting user");
-    } finally {
-      setIsDeletingUser(null);
-    }
-  };
 
   const handleSystemUpdate = async () => {
     if (!confirm("This will pull the latest code and rebuild the panel. It may cause a few seconds of downtime. Continue?")) return;
@@ -331,58 +273,6 @@ export default function SettingsPage(): React.ReactElement {
       )}
 
       {renderGoogleFirebase()}
-
-      {user.role === "admin" && (
-        <div className="bg-card border border-border-subtle rounded-2xl p-4 md:p-5 shadow-xl mt-6 relative overflow-hidden">
-          <h2 className="text-xl font-bold mb-6 flex items-center text-foreground">
-            <Shield className="mr-3 text-indigo-400 w-5 h-5" /> User Management
-          </h2>
-          <form onSubmit={createUser} className="flex gap-3 mb-6 flex-wrap">
-            <input required type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} className="bg-background border border-border px-3 py-2 rounded-xl flex-1 min-w-[150px]" />
-            <input required type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-background border border-border px-3 py-2 rounded-xl flex-1 min-w-[150px]" />
-            <select value={role} onChange={(e) => setRole(e.target.value)} className="bg-background border border-border px-3 py-2 rounded-xl">
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
-            <button type="submit" disabled={isCreatingUser} className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-xl text-white font-medium shadow-md transition-all active:scale-[0.98]">
-              {isCreatingUser ? "Creating..." : "Add User"}
-            </button>
-          </form>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 rounded-l-xl">Username</th>
-                  <th className="px-4 py-3">Role</th>
-                  <th className="px-4 py-3 text-right rounded-r-xl">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u: any) => (
-                  <tr key={u.id} className="border-b border-border-subtle last:border-0 hover:bg-muted/50">
-                    <td className="px-4 py-3 font-medium text-foreground">{u.username}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider ${u.role === 'admin' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-500/20 text-slate-400'}`}>
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => changeUserPassword(u.id)} className="p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-lg transition-colors">
-                          <Key size={14} />
-                        </button>
-                        <button onClick={() => deleteUser(u.id)} disabled={isDeletingUser === u.id} className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors disabled:opacity-50">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {user.role === "admin" && (
         <div className="bg-card border border-border-subtle rounded-2xl p-4 md:p-5 shadow-xl mt-6 relative overflow-hidden">

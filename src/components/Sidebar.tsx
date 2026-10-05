@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Server, LayoutDashboard, Plus, LogOut, X, Settings, Key, User, Activity, Box, Search, Bell, Archive, Sliders, Puzzle, Palette, Egg } from "lucide-react";
+import { Server, LayoutDashboard, Plus, LogOut, X, Settings, Key, User, Activity, Box, Search, Bell, Archive, Sliders, Puzzle, Palette, Egg, ScrollText } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -39,6 +39,7 @@ export function Sidebar({ onClose, isCollapsed, toggleCollapse }: { onClose?: ()
     links.push({ name: "Addons", path: "/admin/addons", icon: <Puzzle size={18} /> });
     links.push({ name: "Backups", path: "/admin/backups", icon: <Archive size={18} /> });
     links.push({ name: "Users", path: "/users", icon: <User size={18} /> });
+    links.push({ name: "Logs", path: "/admin/logs", icon: <ScrollText size={18} /> });
     links.push({ name: "API Keys", path: "/api-keys", icon: <Key size={18} /> });
     links.push({ name: "Settings", path: "/settings", icon: <Settings size={18} /> });
   }

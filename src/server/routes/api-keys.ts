@@ -80,18 +80,24 @@ router.post("/", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const apiKeys = await readJSON("api_keys.json") || [];
-    const keyIndex = apiKeys.findIndex((k: any) => k.id === id);
+    if (!id) {
+      return res.status(400).json({ error: "Key ID is required" });
+    }
+    const rawKeys = await readJSON("api_keys.json");
+    const apiKeys = Array.isArray(rawKeys) ? rawKeys : [];
+    const targetId = String(id).trim();
+    const keyIndex = apiKeys.findIndex((k: any) => String(k.id).trim() === targetId);
     
     if (keyIndex === -1) {
-      return res.status(404).json({ error: "Key not found" });
+      return res.status(404).json({ error: "API Key not found" });
     }
 
     apiKeys.splice(keyIndex, 1);
     await writeJSON("api_keys.json", apiKeys);
 
-    res.json({ success: true, message: "Key deleted successfully" });
+    res.json({ success: true, message: "Key deleted successfully", id: targetId });
   } catch (err: any) {
+    console.error("Error deleting API key:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });

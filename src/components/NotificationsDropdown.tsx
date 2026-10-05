@@ -33,7 +33,7 @@ const DEFAULT_NOTIFICATIONS: NotificationItem[] = [
   },
   {
     id: "notif-3",
-    title: "Welcome to SH Panel",
+    title: "Welcome to Nova Panel",
     message: "Create high-performance game servers with one-click deployment.",
     type: "info",
     timestamp: "1h ago",

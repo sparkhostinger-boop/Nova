@@ -263,7 +263,7 @@ router.put("/settings", async (req, res) => {
   } = req.body;
   const settings = await readJSON("settings.json") || {};
   if (panelName !== undefined) {
-    settings.panelName = panelName || "SH Panel";
+    settings.panelName = panelName || "Nova Panel";
     try {
       const fs = await import("fs/promises");
       const path = await import("path");
@@ -405,7 +405,7 @@ router.get("/backup/download", async (req, res) => {
     const nodes = await readJSON("nodes.json") || [];
 
     const manifest = {
-      panelName: settings.panelName || "SH Panel",
+      panelName: settings.panelName || "Nova Panel",
       version: "2.0.0",
       createdAt: now.toISOString(),
       serversCount: servers.length,

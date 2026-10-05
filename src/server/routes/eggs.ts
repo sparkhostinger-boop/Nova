@@ -32,26 +32,6 @@ export interface SoftwareEgg {
 
 export const PRESET_EGGS: SoftwareEgg[] = [
   {
-    id: "egg-paper-mc",
-    name: "PaperMC (High Performance)",
-    category: "Minecraft Java",
-    author: "PaperMC Team",
-    description: "High performance Minecraft server fork aiming to fix gameplay and mechanics inconsistencies while improving performance.",
-    dockerImage: "itzg/minecraft-server:latest",
-    startupCommand: "java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar paper.jar --nogui",
-    stopCommand: "stop",
-    defaultPort: 25565,
-    mountDir: "/data",
-    versions: ["1.21.1", "1.21", "1.20.4", "1.20.2", "1.20.1", "1.19.4", "1.18.2", "1.16.5", "1.12.2", "latest"],
-    variables: [
-      { name: "Server Jarfile", env_variable: "SERVER_JARFILE", default_value: "paper.jar", description: "Name of the executable jar file" },
-      { name: "Online Mode", env_variable: "ONLINE_MODE", default_value: "true", description: "Require genuine Minecraft accounts" }
-    ],
-    custom: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
     id: "egg-purpur-mc",
     name: "Purpur (Optimized Vanilla)",
     category: "Minecraft Java",
@@ -149,23 +129,6 @@ export const PRESET_EGGS: SoftwareEgg[] = [
     updatedAt: new Date().toISOString()
   },
   {
-    id: "egg-velocity-proxy",
-    name: "Velocity Proxy (Modern)",
-    category: "Minecraft Proxies",
-    author: "PaperMC",
-    description: "Next-generation, highly optimized Minecraft proxy software designed for lightning-fast network routing.",
-    dockerImage: "itzg/bungeecord:latest",
-    startupCommand: "java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar velocity.jar",
-    stopCommand: "end",
-    defaultPort: 25577,
-    mountDir: "/server",
-    versions: ["3.3.0-SNAPSHOT", "latest"],
-    variables: [],
-    custom: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
     id: "egg-terraria-tshock",
     name: "Terraria (tShock Dedicated)",
     category: "Game Servers",
@@ -190,6 +153,11 @@ export const initEggs = async () => {
   let eggs = await readJSON(EGGS_FILE);
   if (!eggs || !Array.isArray(eggs) || eggs.length === 0) {
     await writeJSON(EGGS_FILE, PRESET_EGGS);
+  } else {
+    const cleaned = eggs.filter((e: any) => e.id !== "egg-paper-mc" && e.id !== "egg-velocity-proxy");
+    if (cleaned.length !== eggs.length) {
+      await writeJSON(EGGS_FILE, cleaned);
+    }
   }
 };
 initEggs();
@@ -200,6 +168,12 @@ router.get("/", requireAuth, async (req, res) => {
   if (!eggs || !Array.isArray(eggs) || eggs.length === 0) {
     eggs = PRESET_EGGS;
     await writeJSON(EGGS_FILE, eggs);
+  } else {
+    const cleaned = eggs.filter((e: any) => e.id !== "egg-paper-mc" && e.id !== "egg-velocity-proxy");
+    if (cleaned.length !== eggs.length) {
+      eggs = cleaned;
+      await writeJSON(EGGS_FILE, eggs);
+    }
   }
   res.json(eggs);
 });

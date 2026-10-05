@@ -8,11 +8,13 @@ import systemRoutes from "./system.js";
 import apiKeyRoutes from "./api-keys.js";
 import nodeRoutes from "./nodes.js";
 import eggRoutes from "./eggs.js";
+import auditLogRoutes from "./auditLogs.js";
 
 router.use("/auth", authRoutes);
 router.use("/servers", serverRoutes);
 router.use("/system", systemRoutes);
 router.use("/admin/api-keys", apiKeyRoutes);
+router.use("/admin/audit-logs", auditLogRoutes);
 router.use("/nodes", nodeRoutes);
 router.use("/eggs", eggRoutes);
 
@@ -38,7 +40,8 @@ router.get("/settings", async (req, res) => {
     firebaseProjectId: settings.firebaseProjectId || "",
     firebaseStorageBucket: settings.firebaseStorageBucket || "",
     firebaseMessagingSenderId: settings.firebaseMessagingSenderId || "",
-    firebaseAppId: settings.firebaseAppId || ""
+    firebaseAppId: settings.firebaseAppId || "",
+    addons: settings.addons || {}
   });
 });
 

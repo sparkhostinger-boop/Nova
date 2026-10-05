@@ -80,16 +80,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
       {/* Main Content */}
       <main className="flex-1 w-full h-full relative z-0 overflow-x-hidden overflow-y-auto pb-safe custom-scrollbar flex flex-col">
-        <div className="p-4 sm:p-5 max-w-6xl mx-auto w-full flex-1">
+        <div className="p-4 sm:p-5 max-w-6xl mx-auto w-full">
           {children}
         </div>
-
-        {isFooterEnabled && (
-          <footer className="w-full py-6 px-4 mt-auto border-t border-border-subtle bg-[#21242d]/80 text-center text-sm text-muted-foreground">
-            {footerAddon.startYear}
-            {footerAddon.endYear ? ` - ${footerAddon.endYear}` : ` - ${currentYear}`} {footerAddon.customText}
-          </footer>
-        )}
       </main>
 
       {/* Floating Bottom-Right Discord Button */}

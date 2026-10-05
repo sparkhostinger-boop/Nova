@@ -118,10 +118,6 @@ function RowMetric({ icon: Icon, value, subtext, color }: { icon: any, value: Re
       <div className="flex flex-col">
         <span className={`text-sm font-semibold ${color || 'text-foreground'}`}>{value}</span>
         {subtext && <span className="text-[10px] text-muted-foreground font-medium">{subtext}</span>}
-      
-        <div className="mt-8 text-center text-xs text-muted-foreground/60 font-medium pb-8">
-           &copy; 2015 - {new Date().getFullYear()} "Panel Software"
-        </div>
       </div>
     </div>
   );
@@ -368,9 +364,26 @@ export default function ServerList() {
             <EmptyState isAdmin={isAdmin} />
           )}
         </motion.section>
-        <div className="mt-8 text-center text-xs text-muted-foreground/60 font-medium pb-8">
-           &copy; 2015 - {new Date().getFullYear()} {panelName || "Panel"} Software
-        </div>
+        
+        {(() => {
+          const footerAddon = addons?.footer;
+          const isFooterEnabled = Boolean(footerAddon?.enabled);
+          const currentYear = new Date().getFullYear();
+          const startYear = isFooterEnabled && footerAddon?.startYear ? footerAddon.startYear : "2015";
+          const endYear = isFooterEnabled && footerAddon?.endYear ? footerAddon.endYear : currentYear;
+          const yearDisplay = startYear === String(endYear) ? startYear : `${startYear} - ${endYear}`;
+          const footerText = isFooterEnabled && footerAddon?.customText?.trim()
+            ? footerAddon.customText.trim()
+            : (panelName && panelName !== "Panel" && panelName !== "SH Panel")
+              ? (panelName.toLowerCase().includes("software") ? panelName : `${panelName} Software`)
+              : "Nova Panel Software";
+
+          return (
+            <div className="mt-8 text-center text-xs text-muted-foreground/60 font-medium pb-8">
+              &copy; {yearDisplay} {footerText}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

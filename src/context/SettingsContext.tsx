@@ -116,26 +116,28 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       document.head.appendChild(styleEl);
     }
     
+    const isThemeAddonEnabled = addons?.theme?.enabled !== false;
+
     let css = ":root {\n";
-    if (themePrimaryColor) {
+    if (isThemeAddonEnabled && themePrimaryColor) {
       css += `  --color-indigo-400: ${themePrimaryColor};\n`;
       css += `  --color-indigo-500: ${themePrimaryColor};\n`;
       css += `  --color-indigo-600: ${themePrimaryColor};\n`;
     }
-    if (themeBgColor) {
+    if (isThemeAddonEnabled && themeBgColor) {
       css += `  --bg-background: ${themeBgColor};\n`;
       css += `  --color-background: ${themeBgColor};\n`;
       css += `  --bg-card: ${themeBgColor};\n`;
       css += `  --color-card: ${themeBgColor};\n`;
     }
-    if (themeTextColor) {
+    if (isThemeAddonEnabled && themeTextColor) {
       css += `  --text-foreground: ${themeTextColor};\n`;
       css += `  --color-foreground: ${themeTextColor};\n`;
     }
     css += "}\n";
     styleEl.textContent = css;
     
-  }, [theme, themePrimaryColor, themeBgColor, themeTextColor]);
+  }, [theme, themePrimaryColor, themeBgColor, themeTextColor, addons]);
 
   return (
     <SettingsContext.Provider value={{ 

@@ -25,7 +25,7 @@ import { useAuth } from "../context/AuthContext";
 
 export default function ServerView() {
   const { id } = useParams();
-  const { enablePlayit } = useSettings();
+  const { enablePlayit, panelName, addons } = useSettings();
   const { user, openAccountModal } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "owner";
   const [server, setServer] = useState<any>(null);
@@ -417,20 +417,39 @@ export default function ServerView() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-x-hidden overflow-y-auto relative z-20">
-          <Routes>
-            <Route path="/" element={<ServerConsole serverId={id!} server={server} />} />
-            <Route path="/players" element={<PlayerManager serverId={id!} />} />
-            <Route path="/properties" element={<ServerProperties serverId={id!} />} />
-            <Route path="/files" element={<FileManager serverId={id!} />} />
-            <Route path="/sftp" element={<ServerSFTP serverId={id!} server={server} />} />
-            <Route path="/subusers" element={<SubUsersManager serverId={id!} />} />
-            <Route path="/settings" element={<ServerSettings serverId={id!} server={server} />} />
-            <Route path="/backup" element={<ServerBackups serverId={id!} />} />
-            <Route path="/plugins" element={<PluginManager serverId={id!} />} />
-            <Route path="/mods" element={<ModManager serverId={id!} />} />
-            {enablePlayit && <Route path="/playit" element={<PlayitTunnel serverId={id!} />} />}
-          </Routes>
+        <div className="flex-1 overflow-x-hidden overflow-y-auto relative z-20 flex flex-col justify-between">
+          <div className="flex-1">
+            <Routes>
+              <Route path="/" element={<ServerConsole serverId={id!} server={server} />} />
+              <Route path="/players" element={<PlayerManager serverId={id!} />} />
+              <Route path="/properties" element={<ServerProperties serverId={id!} />} />
+              <Route path="/files" element={<FileManager serverId={id!} />} />
+              <Route path="/sftp" element={<ServerSFTP serverId={id!} server={server} />} />
+              <Route path="/subusers" element={<SubUsersManager serverId={id!} />} />
+              <Route path="/settings" element={<ServerSettings serverId={id!} server={server} />} />
+              <Route path="/backup" element={<ServerBackups serverId={id!} />} />
+              <Route path="/plugins" element={<PluginManager serverId={id!} />} />
+              <Route path="/mods" element={<ModManager serverId={id!} />} />
+              {enablePlayit && <Route path="/playit" element={<PlayitTunnel serverId={id!} />} />}
+            </Routes>
+          </div>
+          <footer className="py-6 px-4 mt-auto text-center text-xs text-muted-foreground/60 font-medium">
+            {(() => {
+              const footerAddon = addons?.footer;
+              const isFooterEnabled = Boolean(footerAddon?.enabled);
+              const currentYear = new Date().getFullYear();
+              const startYear = isFooterEnabled && footerAddon?.startYear ? footerAddon.startYear : "2015";
+              const endYear = isFooterEnabled && footerAddon?.endYear ? footerAddon.endYear : currentYear;
+              const yearDisplay = startYear === String(endYear) ? startYear : `${startYear} - ${endYear}`;
+              const footerText = isFooterEnabled && footerAddon?.customText?.trim()
+                ? footerAddon.customText.trim()
+                : (panelName && panelName !== "Panel" && panelName !== "SH Panel")
+                  ? (panelName.toLowerCase().includes("software") ? panelName : `${panelName} Software`)
+                  : "Nova Panel Software";
+
+              return <>&copy; {yearDisplay} {footerText}</>;
+            })()}
+          </footer>
         </div>
       </div>
 

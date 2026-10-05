@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { readJSON, writeJSON } from "../services/db.js";
 import { createServerContainer, startContainer, stopContainer, restartContainer, deleteContainer, getContainerStatus, sendContainerCommand, attachContainerSocket, getContainerStats } from "../services/docker.js";
 import { createSftpUser, deleteSftpUser } from "../services/sftp.js";
+import { logAudit } from "../services/auditLogger.js";
 import crypto from "crypto";
 import fs from "fs-extra";
 import path from "path";
@@ -219,6 +220,14 @@ export const deleteServer = async (req: Request, res: Response) => {
     
     await deleteSftpUser(id).catch(e => console.error("SFTP user deletion failed:", e));
     
+    await logAudit({
+      req,
+      action: "SERVER_DELETE",
+      serverId: id,
+      serverName: server.name,
+      details: `Server "${server.name}" was permanently deleted by admin`
+    });
+
     res.json({ success: true });
   } catch (err: any) {
     console.error(err);
@@ -227,14 +236,16 @@ export const deleteServer = async (req: Request, res: Response) => {
 };
 
 export const startServer = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  let serverName = id;
   try {
-    const { id } = req.params;
     const servers = await readJSON("servers.json") || [];
     
     const server = servers.find((s: any) => s.id === id);
     if (!server || !server.containerId) {
       return res.status(404).json({ error: "Not found" });
     }
+    serverName = server.name || id;
     if (server.suspended) {
       return res.status(403).json({ error: "Server is suspended" });
     }
@@ -255,21 +266,41 @@ export const startServer = async (req: Request, res: Response) => {
       }
     }
     await attachContainerSocket(server.containerId, server.id, server.nodeId);
+
+    await logAudit({
+      req,
+      action: "SERVER_START",
+      serverId: id,
+      serverName,
+      details: `Server "${serverName}" was started`,
+      status: "success"
+    });
+
     res.json({ success: true });
   } catch (err: any) {
     console.error("Start server error:", err);
+    await logAudit({
+      req,
+      action: "SERVER_START",
+      serverId: id,
+      serverName,
+      details: `Failed to start server "${serverName}": ${err.message || "Unknown error"}`,
+      status: "failed"
+    });
     res.status(500).json({ error: err.message || "Failed to start server" });
   }
 };
 
 export const stopServer = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  let serverName = id;
   try {
-    const { id } = req.params;
     const servers = await readJSON("servers.json") || [];
     const server = servers.find((s: any) => s.id === id);
     if (!server || !server.containerId) {
       return res.status(404).json({ error: "Not found" });
     }
+    serverName = server.name || id;
     try {
       await stopContainer(server.containerId, server.nodeId);
     } catch (stopErr: any) {
@@ -279,21 +310,41 @@ export const stopServer = async (req: Request, res: Response) => {
         throw stopErr;
       }
     }
+
+    await logAudit({
+      req,
+      action: "SERVER_STOP",
+      serverId: id,
+      serverName,
+      details: `Server "${serverName}" was stopped`,
+      status: "success"
+    });
+
     res.json({ success: true });
   } catch (err: any) {
     console.error("Stop server error:", err);
+    await logAudit({
+      req,
+      action: "SERVER_STOP",
+      serverId: id,
+      serverName,
+      details: `Failed to stop server "${serverName}": ${err.message || "Unknown error"}`,
+      status: "failed"
+    });
     res.status(500).json({ error: err.message || "Failed to stop server" });
   }
 };
 
 export const restartServer = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  let serverName = id;
   try {
-    const { id } = req.params;
     const servers = await readJSON("servers.json") || [];
     const server = servers.find((s: any) => s.id === id);
     if (!server || !server.containerId) {
       return res.status(404).json({ error: "Not found" });
     }
+    serverName = server.name || id;
     try {
       const io = req.app.get("io");
       if (io) io.to(`server_${id}`).emit("clear_logs");
@@ -310,9 +361,27 @@ export const restartServer = async (req: Request, res: Response) => {
       }
     }
     await attachContainerSocket(server.containerId, server.id, server.nodeId);
+
+    await logAudit({
+      req,
+      action: "SERVER_RESTART",
+      serverId: id,
+      serverName,
+      details: `Server "${serverName}" was restarted`,
+      status: "success"
+    });
+
     res.json({ success: true });
   } catch (err: any) {
     console.error("Restart server error:", err);
+    await logAudit({
+      req,
+      action: "SERVER_RESTART",
+      serverId: id,
+      serverName,
+      details: `Failed to restart server "${serverName}": ${err.message || "Unknown error"}`,
+      status: "failed"
+    });
     res.status(500).json({ error: err.message || "Failed to restart server" });
   }
 };
@@ -448,6 +517,10 @@ export const deleteFile = async (req: Request, res: Response) => {
   const filePaths = req.body.paths || (req.body.path ? [req.body.path] : []);
   
   try {
+    const servers = await readJSON("servers.json") || [];
+    const server = servers.find((s: any) => s.id === id);
+    const serverName = server?.name || id;
+
     for (const filePath of filePaths) {
       const targetPath = path.join(process.cwd(), ".data", "servers", id, filePath);
       
@@ -457,6 +530,23 @@ export const deleteFile = async (req: Request, res: Response) => {
       
       await fs.remove(targetPath);
     }
+
+    if (filePaths.length > 0) {
+      const summaryMsg = filePaths.length === 1
+        ? `Deleted file "${filePaths[0]}" on server "${serverName}"`
+        : `Deleted ${filePaths.length} file(s) [${filePaths.slice(0, 3).join(", ")}${filePaths.length > 3 ? "..." : ""}] on server "${serverName}"`;
+
+      await logAudit({
+        req,
+        action: "FILE_DELETE",
+        serverId: id,
+        serverName,
+        details: summaryMsg,
+        metadata: { paths: filePaths, count: filePaths.length },
+        status: "success"
+      });
+    }
+
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -617,6 +707,7 @@ export const createFile = async (req: Request, res: Response) => {
     return res.status(403).json({ error: "Invalid path" });
   }
   try {
+    await fs.ensureDir(path.dirname(targetPath));
     await fs.writeFile(targetPath, "", "utf-8");
     res.json({ success: true });
   } catch (e: any) {
@@ -743,7 +834,21 @@ export const deleteBackup = async (req: Request, res: Response) => {
   }
 
   try {
+    const servers = await readJSON("servers.json") || [];
+    const server = servers.find((s: any) => s.id === id);
+    const serverName = server?.name || id;
+
     await fs.remove(backupPath);
+
+    await logAudit({
+      req,
+      action: "BACKUP_DELETE",
+      serverId: id,
+      serverName,
+      details: `Deleted backup "${filename}" for server "${serverName}"`,
+      status: "success"
+    });
+
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
