@@ -10,9 +10,6 @@ export default defineConfig(() => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
-    build: {
-      chunkSizeWarningLimit: 2000,
-    },
     },
     build: {
       chunkSizeWarningLimit: 2000,
@@ -23,9 +20,6 @@ export default defineConfig(() => {
       hmr: true,
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: { usePolling: true },
-    },
-    build: {
-      chunkSizeWarningLimit: 2000,
     },
   };
 });

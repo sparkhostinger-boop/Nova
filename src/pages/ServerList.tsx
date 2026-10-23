@@ -49,7 +49,7 @@ interface ServersState {
 
 /* ── STEP 3 · Constants ───────────────────────────────────────────────────── */
 const EASE = [0.22, 1, 0.36, 1] as const;
-const POLL_INTERVAL_MS = 5_000;
+const POLL_INTERVAL_MS = 8_000;
 const DEFAULT_CPU = 100;
 const DEFAULT_DISK = 10;
 const SURFACE = "transparent"; // Changed to transparent so global background shows
@@ -77,6 +77,7 @@ function useServers(pollIntervalMs = POLL_INTERVAL_MS): ServersState {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchServers = useCallback(async (signal?: AbortSignal) => {
+    if (typeof document !== "undefined" && document.hidden) return;
     try {
       const res = await axios.get<ServerRecord[]>("/api/servers", { signal });
       setServers(Array.isArray(res.data) ? res.data : []);

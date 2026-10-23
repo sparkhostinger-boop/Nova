@@ -82,7 +82,10 @@ export default function ServerView() {
   useEffect(() => {
     fetchServer();
     fetchSystemRam();
-    const interval = setInterval(fetchServer, 3000);
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      fetchServer();
+    }, 6000);
     return () => clearInterval(interval);
   }, [id]);
 

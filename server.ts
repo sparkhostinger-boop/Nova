@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import path from "path";
 import cors from "cors";
+import compression from "compression";
 import { createServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { createServer as createViteServer } from "vite";
@@ -9,9 +10,15 @@ import fs from "fs-extra";
 import jwt from "jsonwebtoken";
 
 const app = express();
+app.disable("x-powered-by");
+
 const httpServer = createServer(app);
 export const io = new SocketIOServer(httpServer, {
   cors: { origin: "*" },
+  pingTimeout: 30000,
+  pingInterval: 25000,
+  maxHttpBufferSize: 1e6, // 1MB buffer limit to prevent RAM exhaustion
+  perMessageDeflate: false, // Save ~256KB RAM per connected socket client
 });
 app.set("io", io);
 setDockerIO(io);
@@ -98,9 +105,23 @@ io.on("connection", (socket) => {
 const isDev = process.env.NODE_ENV !== "production";
 const PORT = 3000;
 
-app.use(express.json({ limit: "50gb" }));
-app.use(express.urlencoded({ extended: true, limit: "50gb" }));
+app.use(compression({
+  threshold: 1024,
+  level: 6
+}));
+
+app.use(express.json({ limit: "25mb" }));
+app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 app.use(cors());
+
+// Periodically run garbage collection when enabled to free heap memory
+setInterval(() => {
+  if (typeof (global as any).gc === "function") {
+    try {
+      (global as any).gc();
+    } catch (e) {}
+  }
+}, 180000);
 
 import apiRoutes from "./src/server/routes/api.js";
 app.use("/api", apiRoutes);
@@ -118,7 +139,11 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      maxAge: "1d",
+      etag: true,
+      lastModified: true
+    }));
     app.get("*all", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });

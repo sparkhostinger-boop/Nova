@@ -7,13 +7,14 @@ export default function ServerLiveStats({ serverId, limitRam, status }: { server
   useEffect(() => {
     if (status !== 'online') return;
     const fetchStats = async () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       try {
         const res = await axios.get(`/api/servers/${serverId}/stats`);
         setLiveRam(res.data.ram); // RAM is in MB
       } catch(e) {}
     };
     fetchStats();
-    const interval = setInterval(fetchStats, 5000);
+    const interval = setInterval(fetchStats, 8000);
     return () => clearInterval(interval);
   }, [serverId, status]);
 

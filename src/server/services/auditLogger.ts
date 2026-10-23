@@ -67,9 +67,9 @@ export const logAudit = async (params: {
     const logs: AuditLogEntry[] = (await readJSON("audit_logs.json")) || [];
     logs.unshift(entry);
 
-    // Keep up to 2,000 logs in rotation
-    if (logs.length > 2000) {
-      logs.splice(2000);
+    // Keep up to 500 logs in rotation to conserve VPS memory
+    if (logs.length > 500) {
+      logs.splice(500);
     }
 
     await writeJSON("audit_logs.json", logs);

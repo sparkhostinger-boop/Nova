@@ -314,6 +314,14 @@ export const startContainer = async (containerId: string, nodeId?: string) => {
 };
 
 export const stopContainer = async (containerId: string, nodeId?: string) => {
+  // Free active log stream from memory
+  if (activeStreams[containerId]) {
+    try { (activeStreams[containerId] as any)?.destroy?.(); } catch (e) {}
+    delete activeStreams[containerId];
+  }
+  delete statusCache[containerId];
+  delete statsCache[containerId];
+
   const docker = await getDocker(nodeId);
   if (isSandbox) {
     const id = containerId.replace("mock-container-id-", "");
@@ -327,6 +335,13 @@ export const stopContainer = async (containerId: string, nodeId?: string) => {
 };
 
 export const restartContainer = async (containerId: string, nodeId?: string) => {
+  if (activeStreams[containerId]) {
+    try { (activeStreams[containerId] as any)?.destroy?.(); } catch (e) {}
+    delete activeStreams[containerId];
+  }
+  delete statusCache[containerId];
+  delete statsCache[containerId];
+
   const docker = await getDocker(nodeId);
   if (isSandbox) {
     const id = containerId.replace("mock-container-id-", "");
@@ -340,11 +355,19 @@ export const restartContainer = async (containerId: string, nodeId?: string) => 
 };
 
 export const deleteContainer = async (containerId: string, nodeId?: string) => {
+  if (activeStreams[containerId]) {
+    try { (activeStreams[containerId] as any)?.destroy?.(); } catch (e) {}
+    delete activeStreams[containerId];
+  }
+  delete statusCache[containerId];
+  delete statsCache[containerId];
+
   const docker = await getDocker(nodeId);
   if (isSandbox) {
     const id = containerId.replace("mock-container-id-", "");
     delete mockState[id];
     delete mockStartTime[id];
+    delete diskCache[id];
     return;
   }
   const container = docker.getContainer(containerId);
@@ -359,32 +382,47 @@ export const deleteContainer = async (containerId: string, nodeId?: string) => {
   }
 };
 
+// Cache container status with 2.5s TTL to avoid flooding Docker inspect & memory allocations
+const statusCache: Record<string, { status: any, timestamp: number }> = {};
+
 export const getContainerStatus = async (containerId: string, nodeId?: string) => {
+  const now = Date.now();
+  if (statusCache[containerId] && (now - statusCache[containerId].timestamp < 2500)) {
+    return statusCache[containerId].status;
+  }
+
   const docker = await getDocker(nodeId);
   if (isSandbox) {
     const id = containerId.replace("mock-container-id-", "");
     const isRunning = mockState[id] || false;
-    return { State: { Running: isRunning, Status: isRunning ? "running" : "exited" } };
+    const res = { State: { Running: isRunning, Status: isRunning ? "running" : "exited" } };
+    statusCache[containerId] = { status: res, timestamp: now };
+    return res;
   }
   try {
     const container = docker.getContainer(containerId);
     const info = await container.inspect();
+    statusCache[containerId] = { status: info, timestamp: now };
     return info;
   } catch (e) {
     return null;
   }
 };
 
-
 let diskCache: Record<string, { sizeMB: number, lastUpdate: number }> = {};
-async function getDirectorySize(dir: string): Promise<number> {
+
+// Memory-bounded directory size calculation (max 3 levels depth and 250 files limit)
+async function getDirectorySize(dir: string, depth = 0): Promise<number> {
+  if (depth > 3) return 0;
   let size = 0;
   try {
     const files = await fs.promises.readdir(dir, { withFileTypes: true });
+    let count = 0;
     for (const file of files) {
+      if (++count > 250) break; // Avoid deep unrolled loops in large Minecraft world regions
       const p = path.join(dir, file.name);
       if (file.isDirectory()) {
-        size += await getDirectorySize(p);
+        size += await getDirectorySize(p, depth + 1);
       } else {
         const stat = await fs.promises.stat(p);
         size += stat.size;
@@ -394,24 +432,33 @@ async function getDirectorySize(dir: string): Promise<number> {
   return size;
 }
 
+// Cache stats for 2.5 seconds to reduce CPU and buffer pressure
+const statsCache: Record<string, { stats: any, timestamp: number }> = {};
+
 export const getContainerStats = async (containerId: string, nodeId?: string, serverId?: string) => {
+  const now = Date.now();
+  if (statsCache[containerId] && (now - statsCache[containerId].timestamp < 2500)) {
+    return statsCache[containerId].stats;
+  }
+
   const docker = await getDocker(nodeId);
   if (isSandbox) {
     const id = containerId.replace("mock-container-id-", "");
     if (!mockState[id]) return { cpu: 0, ram: 0, disk: 0, netIn: 0, netOut: 0, startedAt: null };
     
-    // Stable pseudo-random mock stats based on time so it fluctuates realistically
     const timeSec = Math.floor(Date.now() / 5000);
-    const floatPseudo = (Math.sin(timeSec + id.charCodeAt(0)) + 1) / 2; // 0 to 1
+    const floatPseudo = (Math.sin(timeSec + id.charCodeAt(0)) + 1) / 2;
     
-    return {
-      cpu: floatPseudo * 10 + 2, // 2% to 12%
-      ram: 600 + (floatPseudo * 50 - 25), // ~600 MB
+    const res = {
+      cpu: floatPseudo * 10 + 2,
+      ram: 600 + (floatPseudo * 50 - 25),
       disk: 2.1,
       netIn: timeSec * 1024,
       netOut: timeSec * 512,
       startedAt: mockStartTime[id] || new Date().toISOString()
     };
+    statsCache[containerId] = { stats: res, timestamp: now };
+    return res;
   }
   try {
     const container = docker.getContainer(containerId);
@@ -451,16 +498,16 @@ export const getContainerStats = async (containerId: string, nodeId?: string, se
 
     let diskSizeMB = 2.1;
     if (serverId) {
-       const now = Date.now();
-       if (!diskCache[serverId] || now - diskCache[serverId].lastUpdate > 60000) {
+       const nowTime = Date.now();
+       if (!diskCache[serverId] || nowTime - diskCache[serverId].lastUpdate > 120000) {
           const dir = path.join(process.cwd(), ".data", "servers", serverId);
           const bytes = await getDirectorySize(dir);
-          diskCache[serverId] = { sizeMB: bytes / 1024 / 1024, lastUpdate: now };
+          diskCache[serverId] = { sizeMB: bytes / 1024 / 1024, lastUpdate: nowTime };
        }
        diskSizeMB = diskCache[serverId].sizeMB;
     }
 
-    return {
+    const calculated = {
       cpu: cpuPercent,
       ram: ramMB,
       disk: diskSizeMB,
@@ -468,6 +515,8 @@ export const getContainerStats = async (containerId: string, nodeId?: string, se
       netOut: netOut,
       startedAt: info.State.StartedAt
     };
+    statsCache[containerId] = { stats: calculated, timestamp: now };
+    return calculated;
   } catch (e) {
     return { cpu: 0, ram: 0, disk: 0, netIn: 0, netOut: 0, startedAt: null };
   }
@@ -506,9 +555,23 @@ export const attachContainerSocket = async (containerId: string, serverId: strin
       stream.on('end', () => {
         delete activeStreams[containerId];
       });
+      stream.on('close', () => {
+        delete activeStreams[containerId];
+      });
+      stream.on('error', () => {
+        try { (stream as any)?.destroy?.(); } catch (e) {}
+        delete activeStreams[containerId];
+      });
     }
   } catch(e) {
     console.error("Attach error", e);
+  }
+};
+
+export const detachContainerSocket = (containerId: string) => {
+  if (activeStreams[containerId]) {
+    try { (activeStreams[containerId] as any)?.destroy?.(); } catch (e) {}
+    delete activeStreams[containerId];
   }
 };
 
