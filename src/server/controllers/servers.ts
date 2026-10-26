@@ -81,7 +81,11 @@ export const createServer = async (req: Request, res: Response) => {
   if (user.role !== "admin" && user.role !== "owner") {
     return res.status(403).json({ error: "Only admins can create servers" });
   }
-  const { name, ram, port, version, theme, cpu, disk, owner, ipAlias, type, nodeId, motd, cracked, eggId, startupCommand, dockerImage, stopCommand, mountDir, customEgg } = req.body;
+  const { 
+    name, ram, port, version, theme, cpu, disk, owner, ipAlias, type, nodeId, motd, cracked, 
+    eggId, startupCommand, dockerImage, stopCommand, mountDir, customEgg,
+    cpuModel, cpuVendor, vmUsername, vmPassword, vmHostname, osDistro, sshPort, guiMode, variables 
+  } = req.body;
   if (!name || !ram || !port) {
     res.status(400).json({ error: "Missing required fields (name, ram, port)" });
     return;
@@ -117,6 +121,15 @@ export const createServer = async (req: Request, res: Response) => {
     startupCommand: startupCommand || resolvedEgg?.startupCommand || null,
     stopCommand: stopCommand || resolvedEgg?.stopCommand || null,
     mountDir: mountDir || resolvedEgg?.mountDir || "/data",
+    cpuModel: cpuModel || (resolvedEgg?.variables?.find((v: any) => v.env_variable === "CPU_MODEL")?.default_value) || null,
+    cpuVendor: cpuVendor || (resolvedEgg?.variables?.find((v: any) => v.env_variable === "CPU_VENDOR")?.default_value) || null,
+    vmUsername: vmUsername || (resolvedEgg?.variables?.find((v: any) => v.env_variable === "VM_USERNAME")?.default_value) || null,
+    vmPassword: vmPassword || (resolvedEgg?.variables?.find((v: any) => v.env_variable === "VM_PASSWORD")?.default_value) || null,
+    vmHostname: vmHostname || (resolvedEgg?.variables?.find((v: any) => v.env_variable === "VM_HOSTNAME")?.default_value) || null,
+    osDistro: osDistro || version || (resolvedEgg?.versions?.[0]) || null,
+    sshPort: sshPort || port || null,
+    guiMode: guiMode !== undefined ? Boolean(guiMode) : false,
+    variables: variables || {},
     status: "installing",
     createdAt: new Date().toISOString(),
     containerId: null as string | null,

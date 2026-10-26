@@ -41,7 +41,7 @@ router.post("/", async (req, res) => {
     for (let i = 0; i < 14; i++) {
       rawKey += chars[randomBytes[i] % chars.length];
     }
-    const keyString = `jtg-${rawKey}`;
+    const keyString = `nova_${rawKey}`;
     
     // Hash the key for storage
     const keyHash = crypto.createHash('sha256').update(keyString).digest('hex');

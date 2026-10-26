@@ -178,6 +178,11 @@ export default function ServerView() {
                 <span className="text-[#52525b]">•</span>
                 <span className="text-[#d4d4d8] font-mono">{server.port || "25565"}</span>
               </div>
+              {server.cpuModel && (
+                <div className="text-[10px] font-mono text-indigo-400 truncate mt-0.5">
+                  {server.cpuModel} {server.cpuVendor ? `• ${server.cpuVendor}` : ''}
+                </div>
+              )}
             </div>
           </div>
           <button
@@ -290,6 +295,12 @@ export default function ServerView() {
                 <span className="text-zinc-600">•</span>
                 <span className="font-mono text-[10px] text-zinc-300">{server.port || "25565"}</span>
               </div>
+              {server.cpuModel && (
+                <div className="text-[9.5px] font-mono text-indigo-400/90 truncate mt-1 flex items-center gap-1">
+                  <span className="truncate">{server.cpuModel}</span>
+                  {server.cpuVendor && <span className="text-zinc-500">• {server.cpuVendor}</span>}
+                </div>
+              )}
             </div>
           </div>
         </div>

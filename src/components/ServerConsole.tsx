@@ -50,7 +50,7 @@ function formatRate(bytes: number) {
 /* ═══════════════════════════════════════════════════════
    COMPONENTS
 ═══════════════════════════════════════════════════════ */
-const StatCard = ({ icon, label, value, dim }: any) => (
+const StatCard = ({ icon, label, value, dim, sub }: any) => (
   <div className="relative bg-zinc-950/40 border border-zinc-800/50 backdrop-blur-md rounded-2xl py-4 pr-5 pl-[88px] min-h-[88px] overflow-hidden flex flex-col justify-center transition-all duration-300 hover:bg-zinc-900/60 hover:border-zinc-700/80 shadow-sm hover:shadow-md group">
     <div className="absolute left-4 top-1/2 -translate-y-1/2 -rotate-12 text-zinc-800/60 transition-all duration-500 group-hover:text-zinc-700/80 group-hover:scale-110 pointer-events-none">
       {icon}
@@ -59,6 +59,11 @@ const StatCard = ({ icon, label, value, dim }: any) => (
     <div className="text-lg sm:text-xl font-display font-bold text-white whitespace-nowrap overflow-hidden text-ellipsis relative z-10">
       {value} {dim && <span className="text-zinc-500 font-medium text-sm sm:text-base ml-1">{dim}</span>}
     </div>
+    {sub && (
+      <div className="text-[11px] font-mono text-zinc-400 truncate mt-0.5 relative z-10 flex items-center gap-1">
+        {sub}
+      </div>
+    )}
   </div>
 );
 const ChartCard = ({ title, data, dataKey, dataKey2, max, icons }: any) => {
@@ -345,7 +350,25 @@ export default function ServerConsole({ serverId, server }: ServerConsoleProps) 
       <div className="flex flex-wrap sm:flex-nowrap justify-between items-center mb-[16px] sm:mb-[20px] gap-[12px] sm:gap-[14px] animate-[rise_.5s_ease_both]">
         <div className="flex items-center gap-4 min-w-0">
           <div className={`w-3.5 h-3.5 rounded-full shrink-0 ${isOnline ? 'bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,.6)] animate-[pulseOrb_2s_ease-in-out_infinite]' : stats.status === 'offline' ? 'bg-zinc-600' : 'bg-amber-400 animate-[pulseOrb_1s_ease-in-out_infinite]'}`} />
-          <h1 className="text-2xl sm:text-3xl font-display font-bold text-white truncate drop-shadow-sm">{server?.name || "Server"}</h1>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl sm:text-3xl font-display font-bold text-white truncate drop-shadow-sm">{server?.name || "Server"}</h1>
+              {server?.cpuModel && (
+                <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 shrink-0">
+                  <Cpu size={12} className="text-indigo-400" />
+                  <span className="truncate max-w-[220px]">{server.cpuModel}</span>
+                  {server.cpuVendor && <span className="text-indigo-400/80 font-bold">• {server.cpuVendor}</span>}
+                </span>
+              )}
+            </div>
+            {server?.vmUsername && (
+              <div className="text-[11px] font-mono text-zinc-400 flex items-center gap-2 mt-0.5">
+                <span className="text-indigo-400 font-semibold">VM User: {server.vmUsername}</span>
+                <span>•</span>
+                <span>SSH: <code className="text-zinc-200 bg-zinc-900 px-1 rounded">ssh -p {server.sshPort || server.port || 2222} {server.vmUsername}@localhost</code></span>
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end">
           <button onClick={() => executeAction('start')} className="flex-1 sm:flex-initial min-w-[70px] sm:min-w-[104px] h-[40px] sm:h-[46px] border border-emerald-500/20 rounded-full flex items-center justify-center text-emerald-50 bg-emerald-500/10 hover:bg-emerald-500 hover:border-emerald-400 transition-all shadow-[0_0_15px_rgba(16,185,129,0)] hover:shadow-[0_0_15px_rgba(16,185,129,0.3)] touch-manipulation" title="Start">
@@ -395,8 +418,17 @@ export default function ServerConsole({ serverId, server }: ServerConsoleProps) 
               return server.port ? `${server.port}` : "25565";
             })()} 
           />
-          <StatCard icon={<Clock style={{width: 62, height: 62}} />} label="Uptime" value={uptimeStr} />
-          <StatCard icon={<Cpu style={{width: 62, height: 62}} />} label="CPU Load" value={isOnline ? `${stats.cpu.toFixed(2)}%` : '—'} dim={isOnline ? `/ ${stats.limitCpu}%` : ''} />
+          <StatCard 
+            icon={<Cpu style={{width: 62, height: 62}} />} 
+            label="CPU Load" 
+            value={isOnline ? `${stats.cpu.toFixed(2)}%` : '—'} 
+            dim={isOnline ? `/ ${stats.limitCpu}%` : ''} 
+            sub={server?.cpuModel ? (
+              <span className="truncate max-w-[200px]" title={`${server.cpuModel} (${server.cpuVendor || 'Vendor'})`}>
+                {server.cpuModel.split(" ")[0]} {server.cpuModel.split(" ")[1] || ""} • {server.cpuVendor || "Vendor"}
+              </span>
+            ) : undefined}
+          />
           <StatCard icon={<MemoryIcon style={{width: 62, height: 62}} />} label="Memory" value={isOnline ? formatSize(stats.ram) : '—'} dim={isOnline ? `/ ${formatSize(stats.limitRam)}` : ''} />
           <StatCard icon={<HardDrive style={{width: 62, height: 62}} />} label="Disk" value={isOnline ? formatSize(stats.disk) : '—'} dim={`/ ${formatSize(stats.limitDisk)}`} />
           <StatCard icon={<ArrowDown style={{width: 62, height: 62}} />} label="Network (Inbound)" value={isOnline ? `↓ ${formatRate(netRates.in)}` : '—'} />

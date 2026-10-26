@@ -146,6 +146,41 @@ export const PRESET_EGGS: SoftwareEgg[] = [
     custom: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
+  },
+  {
+    id: "egg-qemu-cloud-vm",
+    name: "Enhanced Multi-VM (QEMU / Cloud-Init)",
+    type: "STABLE",
+    category: "Virtualization & Cloud VMs",
+    author: "Cloud Virtualization",
+    description: "Multi-OS Linux Cloud VM powered by QEMU, KVM, and Cloud-Init. Supports custom CPU models, custom CPU vendor flags, dedicated RAM, storage, hostname, admin username/password, and preloaded OS distributions (Ubuntu 22.04/24.04, Debian 11/12, Fedora 40, CentOS 9, AlmaLinux 9, Rocky Linux 9).",
+    dockerImage: "ghcr.io/cloud/multi-vm-manager:latest",
+    startupCommand: "bash start_vm.sh --cpu '{{CPU_MODEL}}' --vendor '{{CPU_VENDOR}}' --ram {{SERVER_MEMORY}}M --cpus {{SERVER_CPU_COUNT}} --port {{SERVER_PORT}}",
+    stopCommand: "poweroff",
+    defaultPort: 2222,
+    mountDir: "/data",
+    versions: [
+      "Ubuntu 24.04 LTS (Noble)",
+      "Ubuntu 22.04 LTS (Jammy)",
+      "Debian 12 (Bookworm)",
+      "Debian 11 (Bullseye)",
+      "Fedora 40 Cloud",
+      "CentOS Stream 9",
+      "AlmaLinux 9",
+      "Rocky Linux 9"
+    ],
+    variables: [
+      { name: "CPU Model Name", env_variable: "CPU_MODEL", default_value: "AMD EPYC 7763 64-Core Processor", description: "Virtual CPU Model identifier shown to guest OS and host stats" },
+      { name: "CPU Vendor Name", env_variable: "CPU_VENDOR", default_value: "AuthenticAMD", description: "CPU Vendor string (e.g. AuthenticAMD, GenuineIntel, NovaCloud)" },
+      { name: "VM Hostname", env_variable: "VM_HOSTNAME", default_value: "nova-cloud-vm", description: "System hostname in guest OS" },
+      { name: "VM Username", env_variable: "VM_USERNAME", default_value: "ubuntu", description: "Default sudo administrator user in guest OS" },
+      { name: "VM Password", env_variable: "VM_PASSWORD", default_value: "nova1234!", description: "Password for default user and root login" },
+      { name: "SSH Port", env_variable: "SSH_PORT", default_value: "2222", description: "Host port mapped to guest SSH port 22" },
+      { name: "GUI Mode", env_variable: "GUI_MODE", default_value: "false", description: "Enable virtual display output (true/false)" }
+    ],
+    custom: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   }
 ];
 
@@ -154,9 +189,22 @@ export const initEggs = async () => {
   if (!eggs || !Array.isArray(eggs) || eggs.length === 0) {
     await writeJSON(EGGS_FILE, PRESET_EGGS);
   } else {
+    let modified = false;
+    // Remove unwanted old eggs
     const cleaned = eggs.filter((e: any) => e.id !== "egg-paper-mc" && e.id !== "egg-velocity-proxy");
     if (cleaned.length !== eggs.length) {
-      await writeJSON(EGGS_FILE, cleaned);
+      eggs = cleaned;
+      modified = true;
+    }
+    // Ensure all preset eggs exist
+    for (const preset of PRESET_EGGS) {
+      if (!eggs.some((e: any) => e.id === preset.id)) {
+        eggs.push(preset);
+        modified = true;
+      }
+    }
+    if (modified) {
+      await writeJSON(EGGS_FILE, eggs);
     }
   }
 };
@@ -169,9 +217,19 @@ router.get("/", requireAuth, async (req, res) => {
     eggs = PRESET_EGGS;
     await writeJSON(EGGS_FILE, eggs);
   } else {
+    let modified = false;
     const cleaned = eggs.filter((e: any) => e.id !== "egg-paper-mc" && e.id !== "egg-velocity-proxy");
     if (cleaned.length !== eggs.length) {
       eggs = cleaned;
+      modified = true;
+    }
+    for (const preset of PRESET_EGGS) {
+      if (!eggs.some((e: any) => e.id === preset.id)) {
+        eggs.push(preset);
+        modified = true;
+      }
+    }
+    if (modified) {
       await writeJSON(EGGS_FILE, eggs);
     }
   }

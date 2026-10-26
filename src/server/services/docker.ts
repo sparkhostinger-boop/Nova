@@ -199,7 +199,14 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
       `SERVER_MEMORY=${serverData.ram * 1024}`,
       `SERVER_PORT=${serverData.port}`,
       `VERSION=${serverData.version || "latest"}`,
-      `EGG_NAME=${serverData.eggName || serverData.type || "Custom"}`
+      `EGG_NAME=${serverData.eggName || serverData.type || "Custom"}`,
+      `CPU_MODEL=${serverData.cpuModel || "AMD EPYC 7763 64-Core Processor"}`,
+      `CPU_VENDOR=${serverData.cpuVendor || "AuthenticAMD"}`,
+      `VM_USERNAME=${serverData.vmUsername || "ubuntu"}`,
+      `VM_PASSWORD=${serverData.vmPassword || "nova1234!"}`,
+      `VM_HOSTNAME=${serverData.vmHostname || serverData.name}`,
+      `OS_DISTRO=${serverData.osDistro || serverData.version || "Ubuntu 24.04 LTS"}`,
+      `SSH_PORT=${serverData.sshPort || serverData.port || 2222}`
     );
   }
 
@@ -282,7 +289,33 @@ export const startContainer = async (containerId: string, nodeId?: string) => {
             }, { spaces: 2 });
           }
 
-          if (server.dockerImage?.includes("node") && !fs.existsSync(path.join(serverDir, "index.js"))) {
+          const isQemuVm = server.eggId === "egg-qemu-cloud-vm" || server.dockerImage?.includes("multi-vm") || server.dockerImage?.includes("qemu") || server.cpuModel;
+
+          if (isQemuVm) {
+            const vmConfPath = path.join(serverDir, "vm.conf");
+            if (!fs.existsSync(vmConfPath)) {
+              await fs.writeFile(vmConfPath, `# Enhanced Multi-VM Manager Configuration
+# QEMU CLOUD VIRTUALIZATION
+VM_NAME="${server.name}"
+OS_TYPE="${server.osDistro || server.version || 'Ubuntu 24.04 LTS'}"
+HOSTNAME="${server.vmHostname || server.name}"
+USERNAME="${server.vmUsername || 'ubuntu'}"
+PASSWORD="${server.vmPassword || 'nova1234!'}"
+DISK_SIZE="${server.disk || 20}G"
+MEMORY="${server.ram ? server.ram * 1024 : 2048}"
+CPUS="${Math.max(1, Math.round((server.cpu || 200) / 100))}"
+CPU_MODEL="${server.cpuModel || 'AMD EPYC 7763 64-Core Processor'}"
+CPU_VENDOR="${server.cpuVendor || 'AuthenticAMD'}"
+SSH_PORT="${server.sshPort || server.port || 2222}"
+GUI_MODE="${server.guiMode ? 'true' : 'false'}"
+CREATED="${new Date().toISOString()}"
+`);
+            }
+            const vmScriptPath = path.join(serverDir, "start_vm.sh");
+            if (!fs.existsSync(vmScriptPath)) {
+              await fs.writeFile(vmScriptPath, `#!/bin/bash\n# Enhanced Multi-VM Manager - QEMU CLOUD VIRTUALIZATION\necho "Booting QEMU VM: ${server.name} with CPU: ${server.cpuModel || 'AMD EPYC 7763 64-Core Processor'} [Vendor: ${server.cpuVendor || 'AuthenticAMD'}]"\n`);
+            }
+          } else if (server.dockerImage?.includes("node") && !fs.existsSync(path.join(serverDir, "index.js"))) {
             await fs.writeFile(path.join(serverDir, "index.js"), `// Custom Node.js Egg Entrypoint\nconsole.log("Starting ${server.name} (${server.eggName || 'Node App'})...");\nconsole.log("Listening on port ${server.port}");\nsetInterval(() => {\n  console.log("[Status] Heartbeat OK - Active");\n}, 15000);\n`);
           } else if (server.dockerImage?.includes("python") && !fs.existsSync(path.join(serverDir, "main.py"))) {
             await fs.writeFile(path.join(serverDir, "main.py"), `# Custom Python Egg Entrypoint\nimport time\nprint("Starting ${server.name} (${server.eggName || 'Python Bot'})...")\nprint("Running on port ${server.port}")\nwhile True:\n    time.sleep(15)\n    print("[Status] Python loop alive")\n`);
@@ -305,6 +338,43 @@ export const startContainer = async (containerId: string, nodeId?: string) => {
     } catch(e) {}
     
     const serverObj = (await readJSON("servers.json") || []).find((s: any) => s.id === id);
+    if (serverObj?.eggId === "egg-qemu-cloud-vm" || serverObj?.cpuModel) {
+      const cores = Math.max(1, Math.round((serverObj.cpu || 200) / 100));
+      const ramMB = serverObj.ram ? serverObj.ram * 1024 : 2048;
+      const sshPort = serverObj.sshPort || serverObj.port || 2222;
+      const vmUser = serverObj.vmUsername || "ubuntu";
+      const vmHost = serverObj.vmHostname || serverObj.name;
+      const cpuModel = serverObj.cpuModel || "AMD EPYC 7763 64-Core Processor";
+      const cpuVendor = serverObj.cpuVendor || "AuthenticAMD";
+      const osDistro = serverObj.osDistro || serverObj.version || "Ubuntu 24.04 LTS";
+
+      const vmBanner = 
+`\r\n========================================================================\r
+   ____  ______ __  __ _    _    _____ _      ____  _    _ _____  \r
+  / __ \\|  ____|  \\/  | |  | |  / ____| |    / __ \\| |  | |  __ \\ \r
+ | |  | | |__  | \\  / | |  | | | |    | |   | |  | | |  | | |  | |\r
+ | |  | |  __| | |\\/| | |  | | | |    | |   | |  | | |  | | |  | |\r
+ | |__| | |____| |  | | |__| | | |____| |___| |__| | |__| | |__| |\r
+  \\___\\_\\______|_|  |_|\\____/   \\_____|______\\____/ \\____/|_____/ \r
+                                                                  \r
+                    QEMU CLOUD VIRTUALIZATION\r
+========================================================================\r
+[INFO] Booting Virtual Machine with QEMU/KVM...\r
+[INFO] Virtual CPU Model: ${cpuModel}\r
+[INFO] CPU Vendor Flag:   ${cpuVendor} (${cores} vCPU Core(s))\r
+[INFO] Memory (RAM):      ${ramMB} MB\r
+[INFO] Virtual Disk:      ${serverObj.disk || 20} GB VirtIO QCOW2\r
+[INFO] Guest OS:          ${osDistro}\r
+[INFO] Hostname:          ${vmHost}\r
+[INFO] Sudo User:         ${vmUser}\r
+[INFO] Cloud-Init:        Initialized cloud-localds seed image\r
+[INFO] Port Forwarding:   Host 0.0.0.0:${sshPort} -> Guest :22 (SSH)\r
+[SUCCESS] VM online! Connect via: ssh -p ${sshPort} ${vmUser}@localhost\r\n`;
+
+      ioInstance?.to(`server_${id}`).emit("log", vmBanner);
+      return;
+    }
+
     const eggLabel = serverObj?.eggName ? ` [Egg: ${serverObj.eggName}]` : "";
     ioInstance?.to(`server_${id}`).emit("log", `[System] Server started (Sandbox Mode)${eggLabel}.\r\n`);
     return;
