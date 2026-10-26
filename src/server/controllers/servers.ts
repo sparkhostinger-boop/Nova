@@ -117,7 +117,13 @@ export const createServer = async (req: Request, res: Response) => {
     eggId: eggId || (resolvedEgg ? resolvedEgg.id : null),
     eggName: resolvedEgg ? resolvedEgg.name : null,
     customEgg: Boolean(customEgg || resolvedEgg),
-    dockerImage: dockerImage || resolvedEgg?.dockerImage || null,
+    dockerImage: (() => {
+      const raw = dockerImage || resolvedEgg?.dockerImage || null;
+      if (raw && (raw.includes("multi-vm-manager") || raw.includes("hopingboyz"))) {
+        return "ubuntu:22.04";
+      }
+      return raw;
+    })(),
     startupCommand: startupCommand || resolvedEgg?.startupCommand || null,
     stopCommand: stopCommand || resolvedEgg?.stopCommand || null,
     mountDir: mountDir || resolvedEgg?.mountDir || "/data",
@@ -153,8 +159,15 @@ export const createServer = async (req: Request, res: Response) => {
     await createSftpUser(id).catch(e => console.error("SFTP user creation failed:", e));
     res.json(serverData);
   } catch (err: any) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error("Failed to create server container:", err);
+    try {
+      const currentServers = (await readJSON("servers.json")) || [];
+      const cleaned = currentServers.filter((s: any) => s.id !== id);
+      await writeJSON("servers.json", cleaned);
+    } catch (cleanupErr) {
+      console.warn("Failed to cleanup failed server entry:", cleanupErr);
+    }
+    res.status(500).json({ error: err.message || "Failed to create server container" });
   }
 };
 

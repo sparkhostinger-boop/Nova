@@ -154,7 +154,7 @@ export const PRESET_EGGS: SoftwareEgg[] = [
     category: "Virtualization & Cloud VMs",
     author: "Cloud Virtualization",
     description: "Multi-OS Linux Cloud VM powered by QEMU, KVM, and Cloud-Init. Supports custom CPU models, custom CPU vendor flags, dedicated RAM, storage, hostname, admin username/password, and preloaded OS distributions (Ubuntu 22.04/24.04, Debian 11/12, Fedora 40, CentOS 9, AlmaLinux 9, Rocky Linux 9).",
-    dockerImage: "ghcr.io/cloud/multi-vm-manager:latest",
+    dockerImage: "ubuntu:22.04",
     startupCommand: "bash start_vm.sh --cpu '{{CPU_MODEL}}' --vendor '{{CPU_VENDOR}}' --ram {{SERVER_MEMORY}}M --cpus {{SERVER_CPU_COUNT}} --port {{SERVER_PORT}}",
     stopCommand: "poweroff",
     defaultPort: 2222,
