@@ -348,10 +348,12 @@ export default function CreateServer() {
         payload.type = selectedEgg.name;
         payload.customEgg = true;
         payload.eggId = selectedEgg.id;
-        payload.eggName = selectedEgg.name;
         let chosenImage = customDockerImage || selectedEgg.dockerImage;
-        if (chosenImage && (chosenImage.includes("multi-vm-manager") || chosenImage.includes("hopingboyz"))) {
-          chosenImage = "ubuntu:22.04";
+        if (chosenImage) {
+          const lower = chosenImage.toLowerCase();
+          if (lower.includes("multi-vm") || lower.includes("hopingboyz") || lower.includes("cloud/multi-vm") || lower.includes("ghcr.io/cloud")) {
+            chosenImage = "ubuntu:22.04";
+          }
         }
         payload.dockerImage = chosenImage;
         payload.startupCommand = customStartupCommand || selectedEgg.startupCommand;

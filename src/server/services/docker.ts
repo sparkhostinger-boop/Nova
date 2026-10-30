@@ -4,6 +4,7 @@ import path from "path";
 let ioInstance: any = null;
 export const setDockerIO = (io: any) => { ioInstance = io; };
 import { readJSON } from "./db.js";
+import { executeVirtualCommand } from "./virtualShell.js";
 
 const getSocketPath = () => {
   if (process.platform === 'win32') return '//./pipe/docker_engine';
@@ -82,6 +83,20 @@ export const getVersions = async (type: string = "PAPER") => {
   ];
 };
 
+export const sanitizeDockerImage = (img?: string | null): string => {
+  if (!img) return "ubuntu:22.04";
+  const lower = String(img).toLowerCase();
+  if (
+    lower.includes("multi-vm") ||
+    lower.includes("hopingboyz") ||
+    lower.includes("cloud/multi-vm-manager") ||
+    lower.includes("ghcr.io/cloud")
+  ) {
+    return "ubuntu:22.04";
+  }
+  return img.trim();
+};
+
 export const createServerContainer = async (serverData: any, nodeId?: string) => {
   const docker = await getDocker(nodeId || serverData.nodeId);
   if (isSandbox) {
@@ -91,6 +106,7 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
 
   const serverType = serverData.type || "PAPER";
   const isProxy = ["VELOCITY", "BUNGEECORD", "WATERFALL"].includes(serverType.toUpperCase());
+
   const isCustomEgg = Boolean(serverData.customEgg || serverData.eggId || serverData.dockerImage);
   
   const isQemuVm = serverData.eggId === "egg-qemu-cloud-vm" || 
@@ -102,19 +118,19 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
   let fullImage = isProxy ? "docker.io/itzg/bungeecord:latest" : "docker.io/itzg/minecraft-server:latest";
   
   if (isCustomEgg && serverData.dockerImage) {
-    let rawImg = serverData.dockerImage;
-    if (rawImg.includes("multi-vm-manager") || rawImg.includes("hopingboyz")) {
-      rawImg = "ubuntu:22.04";
-    }
+    let rawImg = sanitizeDockerImage(serverData.dockerImage);
     shortImage = rawImg;
     fullImage = rawImg.includes("/") ? rawImg : `docker.io/${rawImg}`;
+  } else if (isQemuVm) {
+    shortImage = "ubuntu:22.04";
+    fullImage = "docker.io/ubuntu:22.04";
   }
 
   const findImageId = async (): Promise<string | null> => {
     try {
       const images = await docker.listImages();
       const matched = images.find(img => 
-        img.RepoTags && img.RepoTags.some(tag => tag.includes(shortImage) || tag.includes(fullImage))
+        img.RepoTags && img.RepoTags.some(tag => tag.includes(shortImage) || tag.includes(fullImage) || tag.includes("ubuntu:22.04"))
       );
       if (matched) return matched.Id;
     } catch(e) {
@@ -124,28 +140,40 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
   };
 
   const pullImageStream = async (imgTag: string) => {
-    console.log(`Pulling image ${imgTag}...`);
+    const cleanTag = sanitizeDockerImage(imgTag);
+    console.log(`Pulling image ${cleanTag}...`);
     const { exec } = require("child_process");
     const { promisify } = require("util");
     const execAsync = promisify(exec);
     const engine = "docker";
     
     try {
-      console.log(`Executing: ${engine} pull ${imgTag}`);
-      const { stdout, stderr } = await execAsync(`${engine} pull ${imgTag}`);
+      console.log(`Executing: ${engine} pull ${cleanTag}`);
+      const { stdout, stderr } = await execAsync(`${engine} pull ${cleanTag}`);
       console.log(`${engine} pull stdout:`, stdout);
       if (stderr) console.warn(`${engine} pull stderr:`, stderr);
     } catch (cliErr) {
-      console.warn(`CLI pull failed for ${imgTag}: ${cliErr}. Trying Docker API fallback...`);
-      await new Promise((resolve, reject) => {
-        docker.pull(imgTag, (err: any, stream: any) => {
-          if (err) return reject(err);
-          docker.modem.followProgress(stream, (err: any, output: any) => {
+      console.warn(`CLI pull failed for ${cleanTag}: ${cliErr}. Trying Docker API fallback...`);
+      try {
+        await new Promise((resolve, reject) => {
+          docker.pull(cleanTag, (err: any, stream: any) => {
             if (err) return reject(err);
-            resolve(output);
+            docker.modem.followProgress(stream, (err: any, output: any) => {
+              if (err) return reject(err);
+              resolve(output);
+            });
           });
         });
-      });
+      } catch (pullErr: any) {
+        console.warn(`Docker pull failed for ${cleanTag}: ${pullErr?.message || pullErr}. Falling back to ubuntu:22.04...`);
+        if (cleanTag !== "ubuntu:22.04") {
+          try {
+            await execAsync(`${engine} pull ubuntu:22.04`);
+          } catch (fb) {
+            console.warn("Fallback ubuntu:22.04 pull error:", fb);
+          }
+        }
+      }
     }
   };
 
@@ -172,19 +200,14 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
       }
     }
 
-    // If it's a QEMU VM and image pull failed (e.g. 403 denied on custom tag), fallback to public ubuntu:22.04
-    if (isQemuVm) {
-      console.warn(`QEMU VM custom image pull failed or unavailable. Falling back to public ubuntu:22.04...`);
-      try {
-        await pullImageStream("ubuntu:22.04");
-        return "ubuntu:22.04";
-      } catch (uErr) {
-        console.warn("Could not pull ubuntu:22.04 directly:", uErr);
-        return "ubuntu:22.04";
-      }
+    // Default safe fallback image
+    try {
+      await pullImageStream("ubuntu:22.04");
+      return "ubuntu:22.04";
+    } catch (uErr) {
+      console.warn("Could not pull ubuntu:22.04 directly:", uErr);
+      return "ubuntu:22.04";
     }
-
-    return shortImage; // Fallback to string tag if we somehow couldn't find ID
   };
 
   const targetImage = await ensureImage();
@@ -286,7 +309,7 @@ echo "[INFO] SSH Service:       Host 0.0.0.0:${serverData.sshPort || serverData.
 echo "[INFO] Sudo User:         ${serverData.vmUsername || 'ubuntu'}"
 echo "[SUCCESS] Cloud VM environment is online."
 echo "[INFO] Press Stop in Nova Panel to shut down the VM."
-tail -f /dev/null
+exec /bin/bash --login -i
 `);
       await fs.chmod(vmScriptPath, 0o755).catch(() => {});
     } catch (e) {
@@ -318,7 +341,7 @@ tail -f /dev/null
     };
 
     if (isQemuVm) {
-      opts.Cmd = ["/bin/bash", "-c", "if [ -f /data/start_vm.sh ]; then bash /data/start_vm.sh; else tail -f /dev/null; fi"];
+      opts.Cmd = ["/bin/bash", "-c", "if [ -f /data/start_vm.sh ]; then bash /data/start_vm.sh; else exec /bin/bash --login -i; fi"];
     }
 
     return opts;
@@ -328,20 +351,13 @@ tail -f /dev/null
   try {
     container = await docker.createContainer(buildContainerOptions(targetImage));
   } catch (err: any) {
-    const errStr = String(err?.message || err);
-    if (err?.statusCode === 404 || errStr.includes("404") || errStr.includes("no such image")) {
-      const altImage = targetImage === shortImage ? fullImage : shortImage;
-      console.log(`404 image error with ${targetImage}. Attempting fallback with ${altImage}...`);
-      try {
-        await pullImageStream(altImage);
-        container = await docker.createContainer(buildContainerOptions(altImage));
-      } catch (fallbackErr) {
-        console.log(`Pulling ${targetImage} directly and retrying...`);
-        await pullImageStream(targetImage);
-        container = await docker.createContainer(buildContainerOptions(targetImage));
-      }
-    } else {
-      throw err;
+    console.warn(`Initial container creation failed for ${targetImage}: ${err?.message || err}. Attempting safe fallback to ubuntu:22.04...`);
+    try {
+      await pullImageStream("ubuntu:22.04");
+      container = await docker.createContainer(buildContainerOptions("ubuntu:22.04"));
+    } catch (fallbackErr: any) {
+      console.error("Critical fallback container creation failed:", fallbackErr);
+      throw fallbackErr;
     }
   }
 
@@ -733,26 +749,56 @@ export const detachContainerSocket = (containerId: string) => {
   }
 };
 
-export const sendContainerCommand = async (containerId: string, command: string, nodeId?: string) => {
-  const docker = await getDocker(nodeId);
+export const sendContainerCommand = async (containerId: string, command: string, nodeId?: string, serverInput?: any) => {
+  let server = serverInput;
+  if (!server) {
+    try {
+      const servers = (await readJSON("servers.json")) || [];
+      server = servers.find((s: any) => s.containerId === containerId || s.id === containerId.replace("mock-container-id-", ""));
+    } catch (e) {}
+  }
 
-  if (isSandbox) {
-    // Handled by client local echo
+  const serverId = server?.id || containerId.replace("mock-container-id-", "");
+
+  if (command.trim().toLowerCase() === "clear" || command.trim().toLowerCase() === "cls") {
+    ioInstance?.to(`server_${serverId}`).emit("clear_logs");
     return;
   }
-  if (activeStreams[containerId]) {
-    activeStreams[containerId].write(command + "\n");
-  } else {
-    try {
-      const container = docker.getContainer(containerId);
-      const stream = await container.attach({ stream: true, stdout: true, stderr: true, stdin: true });
-      activeStreams[containerId] = stream;
-      stream.write(command + "\n");
-      stream.on('data', (chunk) => {
-        // Will be broadcasted due to existing or new attach
+
+  if (isSandbox) {
+    if (server) {
+      await executeVirtualCommand(server, command, ioInstance);
+    }
+    return;
+  }
+
+  const docker = await getDocker(nodeId);
+  try {
+    const container = docker.getContainer(containerId);
+    const info = await container.inspect();
+    if (!info.State.Running) {
+      ioInstance?.to(`server_${serverId}`).emit("log", "[System] Cannot send command: Server is offline or stopped.\r\n");
+      return;
+    }
+
+    if (activeStreams[containerId]) {
+      activeStreams[containerId].write(command + "\n");
+    } else {
+      const exec = await container.exec({
+        Cmd: ["/bin/bash", "-c", command],
+        AttachStdout: true,
+        AttachStderr: true,
+        Tty: true
       });
-    } catch(e) {
-       console.error("Command error", e);
+      const stream = await exec.start({ hijack: true, stdin: false });
+      stream.on("data", (chunk: Buffer) => {
+        ioInstance?.to(`server_${serverId}`).emit("log", chunk.toString());
+      });
+    }
+  } catch (dockerExecErr: any) {
+    console.warn("Docker command exec failed, executing via virtual bash shell:", dockerExecErr?.message);
+    if (server) {
+      await executeVirtualCommand(server, command, ioInstance);
     }
   }
 };

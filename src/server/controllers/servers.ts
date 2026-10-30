@@ -119,8 +119,11 @@ export const createServer = async (req: Request, res: Response) => {
     customEgg: Boolean(customEgg || resolvedEgg),
     dockerImage: (() => {
       const raw = dockerImage || resolvedEgg?.dockerImage || null;
-      if (raw && (raw.includes("multi-vm-manager") || raw.includes("hopingboyz"))) {
-        return "ubuntu:22.04";
+      if (raw) {
+        const lower = String(raw).toLowerCase();
+        if (lower.includes("multi-vm") || lower.includes("hopingboyz") || lower.includes("cloud/multi-vm") || lower.includes("ghcr.io/cloud")) {
+          return "ubuntu:22.04";
+        }
       }
       return raw;
     })(),
@@ -422,7 +425,7 @@ export const sendCommand = async (req: Request, res: Response) => {
     if (!server || !server.containerId) {
       return res.status(404).json({ error: "Not found" });
     }
-    await sendContainerCommand(server.containerId, command, server.nodeId);
+    await sendContainerCommand(server.containerId, command, server.nodeId, server);
     res.json({ success: true });
   } catch (err: any) {
     console.error("Command error:", err);

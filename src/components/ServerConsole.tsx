@@ -172,6 +172,9 @@ export default function ServerConsole({ serverId, server }: ServerConsoleProps) 
     socket.on("connect", () => {
       socket.emit("joinServer", serverId);
     });
+    socket.on("clear_logs", () => {
+      setLogs([]);
+    });
     socket.on("log", (data: string) => {
       if (typeof data !== "string") return;
       const lines = data.split(/\r?\n/).filter((l) => l.trim());
@@ -302,7 +305,11 @@ export default function ServerConsole({ serverId, server }: ServerConsoleProps) 
       const cmd = command.trim();
       if (!cmd) return;
       setCommand("");
-      setLogs((p) => [...p, `> ${cmd}`]);
+      if (cmd.toLowerCase() === "clear" || cmd.toLowerCase() === "cls") {
+        setLogs([]);
+      } else {
+        setLogs((p) => [...p, `> ${cmd}`]);
+      }
       try {
         await axios.post(`/api/servers/${serverId}/command`, { command: cmd });
       } catch (err: any) {

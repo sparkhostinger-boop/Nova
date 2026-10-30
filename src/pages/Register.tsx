@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { LoadingOverlay } from "../components/LoadingOverlay";
 import { useSettings } from "../context/SettingsContext";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { SkipForward } from "lucide-react";
 import gsap from "gsap";
 import axios from "axios";
@@ -17,7 +17,20 @@ export default function Register() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [introDone, setIntroDone] = useState(false);
+  const location = useLocation();
+
+  const hasSeenIntro = (() => {
+    try {
+      return (
+        sessionStorage.getItem("auth_intro_seen") === "true" ||
+        Boolean(location.state?.skipIntro)
+      );
+    } catch (e) {
+      return false;
+    }
+  })();
+
+  const [introDone, setIntroDone] = useState(hasSeenIntro);
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
   const { 
@@ -32,38 +45,46 @@ export default function Register() {
 
   useEffect(() => {
     let ctx = gsap.context(() => {
-      gsap.set('.login-card', { autoAlpha: 0, scale: 0.8, rotationX: 20, y: 40 });
+      if (hasSeenIntro) {
+        gsap.set('.login-card', { autoAlpha: 1, scale: 1, rotationX: 0, y: 0 });
+      } else {
+        gsap.set('.login-card', { autoAlpha: 0, scale: 0.8, rotationX: 20, y: 40 });
+      }
     });
     return () => ctx.revert();
-  }, []);
+  }, [hasSeenIntro]);
 
   useEffect(() => {
-    // Attempt auto play
     if (videoRef.current) {
+      if (introDone) {
+        videoRef.current.loop = true;
+      }
       videoRef.current.play().catch((err) => {
         console.warn("Video autoplay prevented or failed:", err);
       });
     }
-  }, []);
+  }, [introDone]);
 
   useEffect(() => {
     if (introDone) {
+      try {
+        sessionStorage.setItem("auth_intro_seen", "true");
+      } catch (e) {}
       gsap.to('.login-card', {
         autoAlpha: 1,
         y: 0,
         scale: 1,
         rotationX: 0,
         z: 0,
-        duration: 1,
+        duration: hasSeenIntro ? 0.2 : 1,
         ease: 'power3.out'
       });
-      // Start looping background video smoothly
       if (videoRef.current) {
         videoRef.current.loop = true;
         videoRef.current.play().catch(() => {});
       }
     }
-  }, [introDone]);
+  }, [introDone, hasSeenIntro]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!introDone) return;
@@ -107,11 +128,11 @@ export default function Register() {
     }
 
     setIsLoading(true);
-
     try {
       await axios.post("/api/auth/register", { username, email, password, confirmPassword });
       setSuccess("Account created! Redirecting to login...");
-      setTimeout(() => navigate("/login"), 1500);
+      try { sessionStorage.setItem("auth_intro_seen", "true"); } catch (e) {}
+      setTimeout(() => navigate("/login", { state: { skipIntro: true } }), 1200);
     } catch (err: any) {
       setError(err.response?.data?.error || "Registration failed.");
     } finally {
@@ -231,7 +252,14 @@ export default function Register() {
 
         <div style={{ marginTop: "1.2rem", textAlign: "center", fontSize: "0.9rem", color: "rgba(255, 255, 255, 0.8)" }}>
           Already have an account?{" "}
-          <Link to="/login" style={{ color: "#fff", fontWeight: 600, textDecoration: "underline" }}>
+          <Link 
+            to="/login" 
+            state={{ skipIntro: true }}
+            onClick={() => {
+              try { sessionStorage.setItem("auth_intro_seen", "true"); } catch (e) {}
+            }}
+            style={{ color: "#fff", fontWeight: 600, textDecoration: "underline" }}
+          >
             Login
           </Link>
         </div>

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { LoadingOverlay } from "../components/LoadingOverlay";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { SkipForward } from "lucide-react";
 import gsap from "gsap";
 import axios from "axios";
@@ -17,10 +17,22 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [introDone, setIntroDone] = useState(false);
+  const location = useLocation();
+
+  const hasSeenIntro = (() => {
+    try {
+      return (
+        sessionStorage.getItem("auth_intro_seen") === "true" ||
+        Boolean(location.state?.skipIntro)
+      );
+    } catch (e) {
+      return false;
+    }
+  })();
+
+  const [introDone, setIntroDone] = useState(hasSeenIntro);
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
-  const { login } = useAuth();
   const { 
     panelName, enableLoginAnimation, enableRegistration,
     enableGoogleLogin, firebaseApiKey, firebaseAuthDomain, firebaseProjectId,
@@ -34,45 +46,52 @@ export default function Login() {
 
   useEffect(() => {
     let ctx = gsap.context(() => {
-      gsap.set('.login-card', { autoAlpha: 0, scale: 0.8, rotationX: 20, y: 40 });
+      if (hasSeenIntro) {
+        gsap.set('.login-card', { autoAlpha: 1, scale: 1, rotationX: 0, y: 0 });
+      } else {
+        gsap.set('.login-card', { autoAlpha: 0, scale: 0.8, rotationX: 20, y: 40 });
+      }
     });
     return () => ctx.revert();
-  }, []);
+  }, [hasSeenIntro]);
 
   useEffect(() => {
-    // Attempt auto play
     if (videoRef.current) {
+      if (introDone) {
+        videoRef.current.loop = true;
+      }
       videoRef.current.play().catch((err) => {
         console.warn("Video autoplay prevented or failed:", err);
       });
     }
-  }, []);
+  }, [introDone]);
 
   useEffect(() => {
     if (introDone) {
+      try {
+        sessionStorage.setItem("auth_intro_seen", "true");
+      } catch (e) {}
       gsap.to('.login-card', {
         autoAlpha: 1,
         y: 0,
         scale: 1,
         rotationX: 0,
         z: 0,
-        duration: 1,
+        duration: hasSeenIntro ? 0.2 : 1,
         ease: 'power3.out'
       });
-      // Start looping background video smoothly
       if (videoRef.current) {
         videoRef.current.loop = true;
         videoRef.current.play().catch(() => {});
       }
     }
-  }, [introDone]);
+  }, [introDone, hasSeenIntro]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!introDone) return;
-    const x = (e.clientX / window.innerWidth - 0.5) * 2; // -1 to 1
-    const y = (e.clientY / window.innerHeight - 0.5) * 2; // -1 to 1
+    const x = (e.clientX / window.innerWidth - 0.5) * 2;
+    const y = (e.clientY / window.innerHeight - 0.5) * 2;
 
-    // Make the login card subtly tilt with the cursor
     gsap.to(".login-card", {
       x: x * 15,
       y: y * 15,
@@ -286,7 +305,14 @@ export default function Login() {
         {enableRegistration !== false && (
           <div style={{ marginTop: "1.2rem", textAlign: "center", fontSize: "0.9rem", color: "rgba(255, 255, 255, 0.8)" }}>
             Don't have an account?{" "}
-            <Link to="/register" style={{ color: "#fff", fontWeight: 600, textDecoration: "underline" }}>
+            <Link 
+              to="/register" 
+              state={{ skipIntro: true }}
+              onClick={() => {
+                try { sessionStorage.setItem("auth_intro_seen", "true"); } catch (e) {}
+              }}
+              style={{ color: "#fff", fontWeight: 600, textDecoration: "underline" }}
+            >
               Register
             </Link>
           </div>
