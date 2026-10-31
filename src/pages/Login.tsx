@@ -23,6 +23,7 @@ export default function Login() {
     try {
       return (
         sessionStorage.getItem("auth_intro_seen") === "true" ||
+        localStorage.getItem("auth_intro_seen") === "true" ||
         Boolean(location.state?.skipIntro)
       );
     } catch (e) {
@@ -70,6 +71,7 @@ export default function Login() {
     if (introDone) {
       try {
         sessionStorage.setItem("auth_intro_seen", "true");
+        localStorage.setItem("auth_intro_seen", "true");
       } catch (e) {}
       gsap.to('.login-card', {
         autoAlpha: 1,

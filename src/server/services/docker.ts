@@ -264,60 +264,15 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
     ? (serverData.mountDir || '/data') 
     : (isProxy ? '/server' : '/data');
 
-  if (isQemuVm) {
-    try {
-      const vmConfPath = path.join(serverDir, "vm.conf");
-      await fs.writeFile(vmConfPath, `# Enhanced Multi-VM Manager Configuration
-# QEMU CLOUD VIRTUALIZATION
-VM_NAME="${serverData.name}"
-OS_TYPE="${serverData.osDistro || serverData.version || 'Ubuntu 24.04 LTS'}"
-HOSTNAME="${serverData.vmHostname || serverData.name}"
-USERNAME="${serverData.vmUsername || 'ubuntu'}"
-PASSWORD="${serverData.vmPassword || 'nova1234!'}"
-DISK_SIZE="${serverData.disk || 20}G"
-MEMORY="${serverData.ram ? serverData.ram * 1024 : 2048}"
-CPUS="${Math.max(1, Math.round((serverData.cpu || 200) / 100))}"
-CPU_MODEL="${serverData.cpuModel || 'AMD EPYC 7763 64-Core Processor'}"
-CPU_VENDOR="${serverData.cpuVendor || 'AuthenticAMD'}"
-SSH_PORT="${serverData.sshPort || serverData.port || 2222}"
-GUI_MODE="${serverData.guiMode ? 'true' : 'false'}"
-CREATED="${new Date().toISOString()}"
-`);
-
-      const vmScriptPath = path.join(serverDir, "start_vm.sh");
-      await fs.writeFile(vmScriptPath, `#!/bin/bash
-# Enhanced Multi-VM Manager - QEMU CLOUD VIRTUALIZATION
-set -e
-echo "========================================================================"
-echo "   ____  ______ __  __ _    _    _____ _      ____  _    _ _____  "
-echo "  / __ \\|  ____|  \\/  | |  | |  / ____| |    / __ \\| |  | |  __ \\ "
-echo " | |  | | |__  | \\  / | |  | | | |    | |   | |  | | |  | | |  | |"
-echo " | |  | |  __| | |\\/| | |  | | | |    | |   | |  | | |  | | |  | |"
-echo " | |__| | |____| |  | | |__| | | |____| |___| |__| | |__| | |__| |"
-echo "  \\___\\_\\______|_|  |_|\\____/   \\_____|______\\____/ \\____/|_____/ "
-echo "                                                                  "
-echo "                    QEMU CLOUD VIRTUALIZATION"
-echo "========================================================================"
-echo "[INFO] Booting Virtual Machine with QEMU/KVM..."
-echo "[INFO] Virtual CPU Model: ${serverData.cpuModel || 'AMD EPYC 7763 64-Core Processor'}"
-echo "[INFO] CPU Vendor Flag:   ${serverData.cpuVendor || 'AuthenticAMD'}"
-echo "[INFO] Memory:            ${serverData.ram ? serverData.ram * 1024 : 2048} MB"
-echo "[INFO] Virtual Disk:      ${serverData.disk || 20} GB VirtIO"
-echo "[INFO] Guest OS:          ${serverData.osDistro || serverData.version || 'Ubuntu 24.04 LTS'}"
-echo "[INFO] Hostname:          ${serverData.vmHostname || serverData.name}"
-echo "[INFO] SSH Service:       Host 0.0.0.0:${serverData.sshPort || serverData.port || 2222} -> Guest :22"
-echo "[INFO] Sudo User:         ${serverData.vmUsername || 'ubuntu'}"
-echo "[SUCCESS] Cloud VM environment is online."
-echo "[INFO] Press Stop in Nova Panel to shut down the VM."
-exec /bin/bash --login -i
-`);
-      await fs.chmod(vmScriptPath, 0o755).catch(() => {});
-    } catch (e) {
-      console.warn("Failed to precreate VM script files:", e);
-    }
-  }
-
   const buildContainerOptions = (img: string) => {
+    const isAlpine = img.includes("alpine");
+    const isLinuxDistro = isQemuVm || 
+      serverData.type === "LINUX" || 
+      img.includes("ubuntu") || 
+      img.includes("debian") || 
+      img.includes("alpine") || 
+      img.includes("rocky");
+
     const opts: any = {
       Image: img,
       name: `jtg-server-${serverData.id}`,
@@ -340,8 +295,10 @@ exec /bin/bash --login -i
       }
     };
 
-    if (isQemuVm) {
-      opts.Cmd = ["/bin/bash", "-c", "if [ -f /data/start_vm.sh ]; then bash /data/start_vm.sh; else exec /bin/bash --login -i; fi"];
+    if (isLinuxDistro) {
+      opts.Cmd = isAlpine 
+        ? ["/bin/sh", "-c", "while true; do sleep 86400; done"] 
+        : ["/bin/bash", "-c", "while true; do sleep 86400; done"];
     }
 
     return opts;
@@ -442,38 +399,30 @@ CREATED="${new Date().toISOString()}"
     } catch(e) {}
     
     const serverObj = (await readJSON("servers.json") || []).find((s: any) => s.id === id);
-    if (serverObj?.eggId === "egg-qemu-cloud-vm" || serverObj?.cpuModel) {
-      const cores = Math.max(1, Math.round((serverObj.cpu || 200) / 100));
-      const ramMB = serverObj.ram ? serverObj.ram * 1024 : 2048;
-      const sshPort = serverObj.sshPort || serverObj.port || 2222;
-      const vmUser = serverObj.vmUsername || "ubuntu";
-      const vmHost = serverObj.vmHostname || serverObj.name;
-      const cpuModel = serverObj.cpuModel || "AMD EPYC 7763 64-Core Processor";
-      const cpuVendor = serverObj.cpuVendor || "AuthenticAMD";
-      const osDistro = serverObj.osDistro || serverObj.version || "Ubuntu 24.04 LTS";
+    const isLinuxDistro = serverObj?.type === "LINUX" || 
+                          serverObj?.eggId === "egg-qemu-cloud-vm" || 
+                          Boolean(serverObj?.cpuModel) ||
+                          Boolean(serverObj?.dockerImage?.includes("ubuntu")) ||
+                          Boolean(serverObj?.dockerImage?.includes("debian")) ||
+                          Boolean(serverObj?.dockerImage?.includes("alpine")) ||
+                          Boolean(serverObj?.dockerImage?.includes("rocky"));
 
-      const vmBanner = 
-`\r\n========================================================================\r
-   ____  ______ __  __ _    _    _____ _      ____  _    _ _____  \r
-  / __ \\|  ____|  \\/  | |  | |  / ____| |    / __ \\| |  | |  __ \\ \r
- | |  | | |__  | \\  / | |  | | | |    | |   | |  | | |  | | |  | |\r
- | |  | |  __| | |\\/| | |  | | | |    | |   | |  | | |  | | |  | |\r
- | |__| | |____| |  | | |__| | | |____| |___| |__| | |__| | |__| |\r
-  \\___\\_\\______|_|  |_|\\____/   \\_____|______\\____/ \\____/|_____/ \r
-                                                                  \r
-                    QEMU CLOUD VIRTUALIZATION\r
-========================================================================\r
-[INFO] Booting Virtual Machine with QEMU/KVM...\r
-[INFO] Virtual CPU Model: ${cpuModel}\r
-[INFO] CPU Vendor Flag:   ${cpuVendor} (${cores} vCPU Core(s))\r
-[INFO] Memory (RAM):      ${ramMB} MB\r
-[INFO] Virtual Disk:      ${serverObj.disk || 20} GB VirtIO QCOW2\r
-[INFO] Guest OS:          ${osDistro}\r
-[INFO] Hostname:          ${vmHost}\r
-[INFO] Sudo User:         ${vmUser}\r
-[INFO] Cloud-Init:        Initialized cloud-localds seed image\r
-[INFO] Port Forwarding:   Host 0.0.0.0:${sshPort} -> Guest :22 (SSH)\r
-[SUCCESS] VM online! Connect via: ssh -p ${sshPort} ${vmUser}@localhost\r\n`;
+    if (isLinuxDistro) {
+      const ramMB = serverObj?.ram ? serverObj.ram * 1024 : 2048;
+      const vmUser = serverObj?.vmUsername || "root";
+      const vmHost = serverObj?.vmHostname || serverObj?.name || "spark";
+      const osDistro = serverObj?.osDistro || serverObj?.version || "Ubuntu 24.04 LTS";
+
+      let vmBanner = "";
+      if (osDistro.toLowerCase().includes("alpine")) {
+        vmBanner = `\r\nWelcome to Alpine Linux v3.20 (Kernel 6.8.0-generic x86_64)\r\n${vmHost}:~# `;
+      } else if (osDistro.toLowerCase().includes("debian")) {
+        vmBanner = `\r\nLinux ${vmHost} 6.8.0-generic #45-Debian SMP x86_64\r\nDebian GNU/Linux 12 (bookworm)\r\nLast login: ${new Date().toUTCString()} from 127.0.0.1\r\n${vmUser}@${vmHost}:~# `;
+      } else if (osDistro.toLowerCase().includes("rocky")) {
+        vmBanner = `\r\nRocky Linux 9.4 (Blue Onyx) x86_64\r\nLast login: ${new Date().toUTCString()} from 127.0.0.1\r\n[${vmUser}@${vmHost} ~]# `;
+      } else {
+        vmBanner = `\r\nWelcome to ${osDistro} (GNU/Linux 6.8.0-generic x86_64)\r\n\r\n * Documentation:  https://help.ubuntu.com\r\n * Management:     https://landscape.canonical.com\r\n * Support:        https://ubuntu.com/pro\r\n\r\nSystem information as of ${new Date().toUTCString()}:\r\n  System load:  0.01               Processes:             18\r\n  Memory usage: ${Math.round(ramMB * 0.12)} MB / ${ramMB} MB\r\n  IPv4 address: 172.17.0.2\r\n\r\n${vmUser}@${vmHost}:~# `;
+      }
 
       ioInstance?.to(`server_${id}`).emit("log", vmBanner);
       return;
@@ -485,6 +434,38 @@ CREATED="${new Date().toISOString()}"
   }
   const container = docker.getContainer(containerId);
   await container.start();
+
+  const servers = (await readJSON("servers.json")) || [];
+  const serverObj = servers.find((s: any) => s.containerId === containerId || s.id === containerId.replace("mock-container-id-", ""));
+  const serverId = serverObj?.id || containerId.replace("mock-container-id-", "");
+
+  const isLinuxDistro = serverObj?.type === "LINUX" || 
+                        serverObj?.eggId === "egg-qemu-cloud-vm" || 
+                        Boolean(serverObj?.cpuModel) ||
+                        Boolean(serverObj?.dockerImage?.includes("ubuntu")) ||
+                        Boolean(serverObj?.dockerImage?.includes("debian")) ||
+                        Boolean(serverObj?.dockerImage?.includes("alpine")) ||
+                        Boolean(serverObj?.dockerImage?.includes("rocky"));
+
+  if (isLinuxDistro) {
+    const ramMB = serverObj?.ram ? serverObj.ram * 1024 : 2048;
+    const vmUser = serverObj?.vmUsername || "root";
+    const vmHost = serverObj?.vmHostname || serverObj?.name || "spark";
+    const osDistro = serverObj?.osDistro || serverObj?.version || "Ubuntu 24.04 LTS";
+
+    let vmBanner = "";
+    if (osDistro.toLowerCase().includes("alpine")) {
+      vmBanner = `\r\nWelcome to Alpine Linux v3.20 (Kernel 6.8.0-generic x86_64)\r\n${vmHost}:~# `;
+    } else if (osDistro.toLowerCase().includes("debian")) {
+      vmBanner = `\r\nLinux ${vmHost} 6.8.0-generic #45-Debian SMP x86_64\r\nDebian GNU/Linux 12 (bookworm)\r\nLast login: ${new Date().toUTCString()} from 127.0.0.1\r\n${vmUser}@${vmHost}:~# `;
+    } else if (osDistro.toLowerCase().includes("rocky")) {
+      vmBanner = `\r\nRocky Linux 9.4 (Blue Onyx) x86_64\r\nLast login: ${new Date().toUTCString()} from 127.0.0.1\r\n[${vmUser}@${vmHost} ~]# `;
+    } else {
+      vmBanner = `\r\nWelcome to ${osDistro} (GNU/Linux 6.8.0-generic x86_64)\r\n\r\n * Documentation:  https://help.ubuntu.com\r\n * Management:     https://landscape.canonical.com\r\n * Support:        https://ubuntu.com/pro\r\n\r\nSystem information as of ${new Date().toUTCString()}:\r\n  System load:  0.01               Processes:             18\r\n  Memory usage: ${Math.round(ramMB * 0.12)} MB / ${ramMB} MB\r\n  IPv4 address: 172.17.0.2\r\n\r\n${vmUser}@${vmHost}:~# `;
+    }
+
+    ioInstance?.to(`server_${serverId}`).emit("log", vmBanner);
+  }
 };
 
 export const stopContainer = async (containerId: string, nodeId?: string) => {
@@ -749,6 +730,8 @@ export const detachContainerSocket = (containerId: string) => {
   }
 };
 
+const containerSessions: Record<string, { cwd: string; user: string; hostname: string }> = {};
+
 export const sendContainerCommand = async (containerId: string, command: string, nodeId?: string, serverInput?: any) => {
   let server = serverInput;
   if (!server) {
@@ -760,9 +743,17 @@ export const sendContainerCommand = async (containerId: string, command: string,
 
   const serverId = server?.id || containerId.replace("mock-container-id-", "");
 
+  const isLinuxDistro = server?.type === "LINUX" || 
+                        server?.eggId === "egg-qemu-cloud-vm" || 
+                        Boolean(server?.cpuModel) ||
+                        Boolean(server?.dockerImage?.includes("ubuntu")) ||
+                        Boolean(server?.dockerImage?.includes("debian")) ||
+                        Boolean(server?.dockerImage?.includes("alpine")) ||
+                        Boolean(server?.dockerImage?.includes("rocky"));
+
   if (command.trim().toLowerCase() === "clear" || command.trim().toLowerCase() === "cls") {
     ioInstance?.to(`server_${serverId}`).emit("clear_logs");
-    return;
+    if (!isLinuxDistro) return;
   }
 
   if (isSandbox) {
@@ -778,6 +769,96 @@ export const sendContainerCommand = async (containerId: string, command: string,
     const info = await container.inspect();
     if (!info.State.Running) {
       ioInstance?.to(`server_${serverId}`).emit("log", "[System] Cannot send command: Server is offline or stopped.\r\n");
+      return;
+    }
+
+    if (isLinuxDistro) {
+      if (!containerSessions[containerId]) {
+        containerSessions[containerId] = {
+          cwd: "/root",
+          user: server?.vmUsername || "root",
+          hostname: server?.vmHostname || server?.name || "spark"
+        };
+      }
+      const session = containerSessions[containerId];
+      const trimmed = command.trim();
+
+      const emitPrompt = () => {
+        const symbol = session.user === "root" ? "#" : "$";
+        const disp = session.cwd === "/root" ? "~" : session.cwd;
+        ioInstance?.to(`server_${serverId}`).emit("log", `\x1b[1;32m${session.user}@${session.hostname}\x1b[0m:\x1b[1;34m${disp}\x1b[0m${symbol} `);
+      };
+
+      if (trimmed.toLowerCase() === "clear" || trimmed.toLowerCase() === "cls") {
+        emitPrompt();
+        return;
+      }
+
+      if (trimmed === "sudo su" || trimmed === "su" || trimmed === "su root" || trimmed === "su -") {
+        session.user = "root";
+        session.cwd = "/root";
+        ioInstance?.to(`server_${serverId}`).emit("log", "Switched to user root.\r\n");
+        emitPrompt();
+        return;
+      }
+
+      const isAlpine = Boolean(server?.dockerImage?.includes("alpine"));
+      const shellBin = isAlpine ? "/bin/sh" : "/bin/bash";
+
+      if (trimmed.startsWith("cd ") || trimmed === "cd" || trimmed === "cd ~") {
+        const target = trimmed === "cd" || trimmed === "cd ~" ? "/root" : trimmed.slice(3).trim();
+        try {
+          const exec = await container.exec({
+            Cmd: [shellBin, "-c", `cd "${session.cwd}" && cd ${target} && pwd`],
+            AttachStdout: true,
+            AttachStderr: true,
+            Tty: false
+          });
+          const stream = await exec.start({ hijack: true, stdin: false });
+          let newDir = "";
+          stream.on("data", (chunk: Buffer) => {
+            newDir += chunk.toString();
+          });
+          stream.on("end", () => {
+            const lines = newDir.trim().split(/\r?\n/);
+            const finalLine = lines[lines.length - 1]?.trim();
+            if (finalLine && finalLine.startsWith("/")) {
+              session.cwd = finalLine;
+            } else {
+              ioInstance?.to(`server_${serverId}`).emit("log", `bash: cd: ${target}: No such file or directory\r\n`);
+            }
+            emitPrompt();
+          });
+        } catch (e: any) {
+          ioInstance?.to(`server_${serverId}`).emit("log", `bash: cd: ${e.message}\r\n`);
+          emitPrompt();
+        }
+        return;
+      }
+
+      // Execute real Linux command inside the container
+      try {
+        const exec = await container.exec({
+          Cmd: [
+            shellBin,
+            "-c",
+            `cd "${session.cwd || '/root'}" && export HOME=/root && export USER=${session.user || 'root'} && export TERM=xterm-256color && export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && (${trimmed})`
+          ],
+          AttachStdout: true,
+          AttachStderr: true,
+          Tty: false
+        });
+        const stream = await exec.start({ hijack: true, stdin: false });
+        stream.on("data", (chunk: Buffer) => {
+          ioInstance?.to(`server_${serverId}`).emit("log", chunk.toString());
+        });
+        stream.on("end", () => {
+          emitPrompt();
+        });
+      } catch (err: any) {
+        ioInstance?.to(`server_${serverId}`).emit("log", `bash: execution error: ${err.message}\r\n`);
+        emitPrompt();
+      }
       return;
     }
 

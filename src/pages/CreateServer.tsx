@@ -66,6 +66,14 @@ export const CPU_VENDORS = [
   { id: "CUSTOM", name: "Custom Vendor...", label: "Custom Vendor" }
 ];
 
+export const LINUX_DISTROS = [
+  { id: "Ubuntu 24.04", name: "Ubuntu 24.04 LTS (Noble Numbat)", image: "ubuntu:24.04", user: "root", desc: "Latest LTS release with Python 3.12, APT package manager, modern kernel", tag: "Recommended", border: "border-orange-500/30", color: "text-orange-400" },
+  { id: "Ubuntu 22.04", name: "Ubuntu 22.04 LTS (Jammy Jellyfish)", image: "ubuntu:22.04", user: "root", desc: "Most popular enterprise LTS release, battle-tested stability", tag: "Stable", border: "border-amber-500/30", color: "text-amber-400" },
+  { id: "Debian 12", name: "Debian 12 (Bookworm)", image: "debian:12", user: "root", desc: "Rock-solid stability, ultra-clean lightweight footprint with apt-get", tag: "Lightweight", border: "border-red-500/30", color: "text-red-400" },
+  { id: "Alpine 3.20", name: "Alpine Linux 3.20", image: "alpine:3.20", user: "root", desc: "Ultra-compact 5MB footprint with APK manager and minimal resource usage", tag: "Ultra-Fast", border: "border-cyan-500/30", color: "text-cyan-400" },
+  { id: "Rocky Linux 9", name: "Rocky Linux 9.4 (Enterprise)", image: "rockylinux:9", user: "root", desc: "Enterprise Linux 100% bug-for-bug compatible with RHEL/CentOS", tag: "Enterprise", border: "border-emerald-500/30", color: "text-emerald-400" },
+];
+
 export const OS_DISTROS = [
   { id: "Ubuntu 24.04", name: "Ubuntu 24.04 LTS (Noble)", user: "ubuntu" },
   { id: "Ubuntu 22.04", name: "Ubuntu 22.04 LTS (Jammy)", user: "ubuntu" },
@@ -79,6 +87,7 @@ export const OS_DISTROS = [
 
 export default function CreateServer() {
   const SOFTWARE_TYPES = [
+    { id: "LINUX", name: "Linux VPS", desc: "Cloud VM & Distros", icon: Terminal, color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/20", activeRing: "ring-emerald-500/50", glow: "to-emerald-500/10", badge: "REAL VPS" },
     { id: "PAPER", name: "Paper", desc: "Performance Vanilla", icon: Zap, color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20", activeRing: "ring-amber-500/50", glow: "to-amber-500/10" },
     { id: "VELOCITY", name: "Velocity", desc: "Next-gen Proxy", icon: FastForward, color: "text-cyan-400", bg: "bg-cyan-400/10", border: "border-cyan-400/20", activeRing: "ring-cyan-500/50", glow: "to-cyan-500/10" },
     { id: "BUNGEECORD", name: "BungeeCord", desc: "Classic Proxy", icon: Network, color: "text-orange-400", bg: "bg-orange-400/10", border: "border-orange-400/20", activeRing: "ring-orange-500/50", glow: "to-orange-500/10" },
@@ -344,6 +353,18 @@ export default function CreateServer() {
         }
       };
 
+      if (type === "LINUX") {
+        const distroObj = LINUX_DISTROS.find(d => d.id === osDistro) || LINUX_DISTROS[0];
+        payload.type = "LINUX";
+        payload.dockerImage = distroObj.image;
+        payload.version = distroObj.name;
+        payload.osDistro = distroObj.id;
+        payload.startupCommand = distroObj.image.includes("alpine") ? "/bin/sh" : "/bin/bash";
+        payload.stopCommand = "exit";
+        payload.mountDir = "/root";
+        payload.port = Number(sshPort || port || 2222);
+      }
+
       if (type === "CUSTOM" && selectedEgg) {
         payload.type = selectedEgg.name;
         payload.customEgg = true;
@@ -498,7 +519,7 @@ export default function CreateServer() {
                   )}
                 </div>
                 
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
                   {SOFTWARE_TYPES.map((soft) => {
                     const isSelected = type === soft.id;
                     const Icon = soft.icon;
@@ -508,8 +529,15 @@ export default function CreateServer() {
                         type="button"
                         onClick={() => {
                           setType(soft.id);
-                          if (soft.id === "CUSTOM" && eggs.length > 0 && !selectedEggId) {
+                          if (soft.id === "LINUX") {
+                            setPort("2222");
+                            setSshPort("2222");
+                            setOsDistro("Ubuntu 24.04");
+                            setVersion("Ubuntu 24.04 LTS (Noble Numbat)");
+                          } else if (soft.id === "CUSTOM" && eggs.length > 0 && !selectedEggId) {
                             setSelectedEggId(eggs[0].id);
+                          } else if (port === "2222") {
+                            setPort("25565");
                           }
                         }}
                         className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-200 relative overflow-hidden group cursor-pointer ${
@@ -1070,6 +1098,184 @@ export default function CreateServer() {
                       </div>
                     )}
                   </div>
+                ) : type === "LINUX" ? (
+                  <div className="space-y-5 pt-3 border-t border-border-subtle">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                          <Terminal className="w-4 h-4 text-emerald-400" />
+                          <span>Select Operating System Distribution</span>
+                        </label>
+                        <span className="text-[11px] text-muted-foreground">Authentic Linux container environment</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {LINUX_DISTROS.map((distro) => {
+                          const isSelected = osDistro === distro.id;
+                          return (
+                            <div
+                              key={distro.id}
+                              onClick={() => {
+                                setOsDistro(distro.id);
+                                setVersion(distro.name);
+                              }}
+                              className={`p-3.5 rounded-xl border transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
+                                isSelected
+                                  ? "bg-emerald-500/10 border-emerald-500/40 ring-1 ring-emerald-500/30 shadow-md"
+                                  : "bg-muted/40 border-border hover:bg-muted/70 hover:border-border-strong"
+                              }`}
+                            >
+                              <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
+                                    <span className={`w-2 h-2 rounded-full ${isSelected ? "bg-emerald-400" : "bg-zinc-500"}`} />
+                                    {distro.id}
+                                  </span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider bg-zinc-800 text-zinc-300 border border-zinc-700">
+                                    {distro.tag}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-muted-foreground leading-snug mb-2">
+                                  {distro.desc}
+                                </div>
+                              </div>
+                              <div className="text-[10px] font-mono text-zinc-400 flex items-center justify-between pt-2 border-t border-border/40">
+                                <span>Image: {distro.image}</span>
+                                {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Linux Credentials */}
+                    <div className="bg-muted-subtle p-4 rounded-xl border border-border-subtle space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                          <Key className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>VPS Access Credentials</span>
+                        </h4>
+                        <span className="text-[11px] text-muted-foreground">Default credentials for root and SSH</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-medium text-foreground-muted mb-1">Hostname</label>
+                          <input
+                            type="text"
+                            value={vmHostname}
+                            onChange={(e) => setVmHostname(e.target.value)}
+                            placeholder="spark"
+                            className="w-full bg-muted border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus:outline-none focus:border-emerald-500 font-mono"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-medium text-foreground-muted mb-1">Root / Sudo User</label>
+                          <input
+                            type="text"
+                            value={vmUsername}
+                            onChange={(e) => setVmUsername(e.target.value)}
+                            placeholder="root"
+                            className="w-full bg-muted border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus:outline-none focus:border-emerald-500 font-mono"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[11px] font-medium text-foreground-muted">Password</label>
+                            <button
+                              type="button"
+                              onClick={generateRandomPassword}
+                              className="text-[10px] text-emerald-400 hover:underline flex items-center gap-1"
+                            >
+                              <RefreshCw size={10} /> Random
+                            </button>
+                          </div>
+                          <div className="relative">
+                            <input
+                              type={showPassword ? "text" : "password"}
+                              value={vmPassword}
+                              onChange={(e) => setVmPassword(e.target.value)}
+                              placeholder="root password"
+                              className="w-full bg-muted border border-border rounded-lg pl-3 pr-8 py-1.5 text-xs text-foreground focus:outline-none focus:border-emerald-500 font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                            >
+                              {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Virtual CPU Specs & Vendor Flag */}
+                    <div className="bg-muted-subtle p-4 rounded-xl border border-border-subtle space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Cpu className="w-4 h-4 text-emerald-400" />
+                          <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Virtual CPU Architecture & Vendor Flag</h4>
+                        </div>
+                        <span className="text-[10px] text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
+                          Hardware Emulation
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-medium text-foreground-muted mb-1">CPU Model Preset</label>
+                          <select
+                            value={cpuModel}
+                            onChange={(e) => setCpuModel(e.target.value)}
+                            className="w-full bg-muted border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus:outline-none focus:border-emerald-500"
+                          >
+                            {CPU_PRESETS.map((p) => (
+                              <option key={p.model} value={p.model}>
+                                {p.model} ({p.tag})
+                              </option>
+                            ))}
+                          </select>
+                          {cpuModel === "Custom Model..." && (
+                            <input
+                              type="text"
+                              value={customCpuModel}
+                              onChange={(e) => setCustomCpuModel(e.target.value)}
+                              placeholder="Enter custom CPU model..."
+                              className="w-full mt-2 bg-muted border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus:outline-none focus:border-emerald-500"
+                            />
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-medium text-foreground-muted mb-1">CPU Vendor Flag</label>
+                          <select
+                            value={cpuVendor}
+                            onChange={(e) => setCpuVendor(e.target.value)}
+                            className="w-full bg-muted border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus:outline-none focus:border-emerald-500"
+                          >
+                            {CPU_VENDORS.map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.name}
+                              </option>
+                            ))}
+                          </select>
+                          {cpuVendor === "CUSTOM" && (
+                            <input
+                              type="text"
+                              value={customVendorInput}
+                              onChange={(e) => setCustomVendorInput(e.target.value)}
+                              placeholder="e.g. SparkHosting, NovaCloud"
+                              className="w-full mt-2 bg-muted border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus:outline-none focus:border-emerald-500"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <div className="pt-2 border-t border-border-subtle">
                     <label className="block text-sm font-medium text-foreground-muted mb-2 flex items-center">
@@ -1109,11 +1315,13 @@ export default function CreateServer() {
                     onChange={(e) => setName(e.target.value)}
                     className="w-full bg-muted-subtle border border-border focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 rounded-xl px-4 py-2 text-foreground transition-all shadow-inner outline-none"
                     placeholder={
-                      type === "CUSTOM" && (selectedEgg?.id === "egg-qemu-cloud-vm" || selectedEgg?.category?.includes("Virtualization"))
-                        ? "e.g. Ubuntu Cloud VM"
-                        : isMinecraft 
-                          ? "e.g. Survival SMP" 
-                          : "e.g. Production Service"
+                      type === "LINUX"
+                        ? "e.g. Production Ubuntu VPS"
+                        : type === "CUSTOM" && (selectedEgg?.id === "egg-qemu-cloud-vm" || selectedEgg?.category?.includes("Virtualization"))
+                          ? "e.g. Ubuntu Cloud VM"
+                          : isMinecraft 
+                            ? "e.g. Survival SMP" 
+                            : "e.g. Production Service"
                     }
                   />
                 </div>
