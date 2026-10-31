@@ -67,7 +67,7 @@ install_panel() {
         sudo dpkg --configure -a 2>/dev/null || true
         sudo apt-get install -f -y 2>/dev/null || true
         sudo apt-get update -y || true
-        sudo apt-get install -y curl git build-essential ca-certificates tar xz-utils ufw || log_warning "Some system packages failed to install, continuing..."
+        sudo apt-get install -y curl git build-essential ca-certificates tar xz-utils || log_warning "Some system packages failed to install, continuing..."
     elif command -v yum &> /dev/null; then
         sudo yum update -y || true
         sudo yum install -y curl git make gcc-c++ ca-certificates tar xz || log_warning "Some system packages failed to install, continuing..."
@@ -243,10 +243,14 @@ EOF
         chown -R "$SUDO_USER:$SUDO_USER" .
     fi
 
-    # Allow port in UFW firewall if active
-    if command -v ufw &> /dev/null && sudo ufw status | grep -q "Status: active"; then
-        log_info "Opening firewall port ${PANEL_PORT}..."
-        sudo ufw allow "${PANEL_PORT}/tcp" || true
+    # Allow port in UFW firewall only if iptables is accessible and UFW is active
+    if command -v ufw &> /dev/null; then
+        if sudo iptables -L -n &>/dev/null; then
+            if sudo ufw status 2>/dev/null | grep -q "Status: active"; then
+                log_info "Opening firewall port ${PANEL_PORT}..."
+                sudo ufw allow "${PANEL_PORT}/tcp" 2>/dev/null || true
+            fi
+        fi
     fi
 
     log_info "Starting Nova Panel with PM2..."
