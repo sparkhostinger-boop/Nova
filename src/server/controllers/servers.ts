@@ -97,6 +97,11 @@ export const createServer = async (req: Request, res: Response) => {
     resolvedEgg = eggs.find((e: any) => e.id === eggId);
   }
 
+  const isLinuxOrVm =
+    String(type || "").toUpperCase() === "LINUX" ||
+    eggId === "egg-qemu-cloud-vm" ||
+    Boolean(resolvedEgg?.category?.toLowerCase().includes("virtualization"));
+
   const id = crypto.randomUUID();
   const serverData = {
     id,
@@ -130,14 +135,14 @@ export const createServer = async (req: Request, res: Response) => {
     startupCommand: startupCommand || resolvedEgg?.startupCommand || null,
     stopCommand: stopCommand || resolvedEgg?.stopCommand || null,
     mountDir: mountDir || resolvedEgg?.mountDir || "/data",
-    cpuModel: cpuModel || (resolvedEgg?.variables?.find((v: any) => v.env_variable === "CPU_MODEL")?.default_value) || null,
-    cpuVendor: cpuVendor || (resolvedEgg?.variables?.find((v: any) => v.env_variable === "CPU_VENDOR")?.default_value) || null,
-    vmUsername: vmUsername || (resolvedEgg?.variables?.find((v: any) => v.env_variable === "VM_USERNAME")?.default_value) || null,
-    vmPassword: vmPassword || (resolvedEgg?.variables?.find((v: any) => v.env_variable === "VM_PASSWORD")?.default_value) || null,
-    vmHostname: vmHostname || (resolvedEgg?.variables?.find((v: any) => v.env_variable === "VM_HOSTNAME")?.default_value) || null,
-    osDistro: osDistro || version || (resolvedEgg?.versions?.[0]) || null,
-    sshPort: sshPort || port || null,
-    guiMode: guiMode !== undefined ? Boolean(guiMode) : false,
+    cpuModel: isLinuxOrVm ? (cpuModel || (resolvedEgg?.variables?.find((v: any) => v.env_variable === "CPU_MODEL")?.default_value) || null) : null,
+    cpuVendor: isLinuxOrVm ? (cpuVendor || (resolvedEgg?.variables?.find((v: any) => v.env_variable === "CPU_VENDOR")?.default_value) || null) : null,
+    vmUsername: isLinuxOrVm ? (vmUsername || (resolvedEgg?.variables?.find((v: any) => v.env_variable === "VM_USERNAME")?.default_value) || null) : null,
+    vmPassword: isLinuxOrVm ? (vmPassword || (resolvedEgg?.variables?.find((v: any) => v.env_variable === "VM_PASSWORD")?.default_value) || null) : null,
+    vmHostname: isLinuxOrVm ? (vmHostname || (resolvedEgg?.variables?.find((v: any) => v.env_variable === "VM_HOSTNAME")?.default_value) || null) : null,
+    osDistro: isLinuxOrVm ? (osDistro || version || (resolvedEgg?.versions?.[0]) || null) : null,
+    sshPort: isLinuxOrVm ? (sshPort || port || null) : null,
+    guiMode: isLinuxOrVm && guiMode !== undefined ? Boolean(guiMode) : false,
     variables: variables || {},
     status: "installing",
     createdAt: new Date().toISOString(),

@@ -1,10 +1,30 @@
 import Docker from "dockerode";
 import fs from "fs-extra";
 import path from "path";
+import { exec } from "child_process";
+import { promisify } from "util";
 let ioInstance: any = null;
 export const setDockerIO = (io: any) => { ioInstance = io; };
 import { readJSON } from "./db.js";
 import { executeVirtualCommand } from "./virtualShell.js";
+
+const execAsync = promisify(exec);
+
+export const isLinuxServer = (server: any): boolean => {
+  if (!server) return false;
+  const t = String(server.type || "").toUpperCase();
+  if (["PAPER", "SPIGOT", "BUKKIT", "PURPUR", "VANILLA", "FORGE", "FABRIC", "VELOCITY", "BUNGEECORD", "WATERFALL"].includes(t)) {
+    return false;
+  }
+  if (t === "LINUX" || server.eggId === "egg-qemu-cloud-vm") return true;
+  const img = String(server.dockerImage || "").toLowerCase().trim();
+  return (
+    img.startsWith("ubuntu:") || img === "ubuntu" ||
+    img.startsWith("debian:") || img === "debian" ||
+    img.startsWith("alpine:") || img === "alpine" ||
+    img.startsWith("rockylinux:") || img.startsWith("fedora:") || img.startsWith("centos:")
+  );
+};
 
 const getSocketPath = () => {
   if (process.platform === 'win32') return '//./pipe/docker_engine';
@@ -109,17 +129,13 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
   const serverType = serverData.type || "PAPER";
   const isProxy = ["VELOCITY", "BUNGEECORD", "WATERFALL"].includes(serverType.toUpperCase());
 
-  const isLinuxDistroServer = serverData.type === "LINUX" || 
-                              serverData.eggId === "egg-qemu-cloud-vm" || 
-                              Boolean(serverData.cpuModel) ||
-                              Boolean(serverData.osDistro);
+  const isLinuxDistroServer = isLinuxServer(serverData);
 
   const isCustomEgg = Boolean(serverData.customEgg || serverData.eggId || serverData.dockerImage);
   
   const isQemuVm = serverData.eggId === "egg-qemu-cloud-vm" || 
                    serverData.dockerImage?.includes("multi-vm") || 
-                   serverData.dockerImage?.includes("qemu") || 
-                   Boolean(serverData.cpuModel);
+                   serverData.dockerImage?.includes("qemu");
   
   let shortImage = isProxy ? "itzg/bungeecord:latest" : "itzg/minecraft-server:latest";
   let fullImage = isProxy ? "docker.io/itzg/bungeecord:latest" : "docker.io/itzg/minecraft-server:latest";
@@ -141,7 +157,7 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
     try {
       const images = await docker.listImages();
       const matched = images.find(img => 
-        img.RepoTags && img.RepoTags.some(tag => tag.includes(shortImage) || tag.includes(fullImage) || tag.includes("ubuntu:22.04"))
+        img.RepoTags && img.RepoTags.some(tag => tag === shortImage || tag === fullImage || tag.includes(shortImage) || tag.includes(fullImage))
       );
       if (matched) return matched.Id;
     } catch(e) {
@@ -153,9 +169,6 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
   const pullImageStream = async (imgTag: string) => {
     const cleanTag = sanitizeDockerImage(imgTag);
     console.log(`Pulling image ${cleanTag}...`);
-    const { exec } = require("child_process");
-    const { promisify } = require("util");
-    const execAsync = promisify(exec);
     const engine = "docker";
     
     try {
@@ -165,26 +178,15 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
       if (stderr) console.warn(`${engine} pull stderr:`, stderr);
     } catch (cliErr) {
       console.warn(`CLI pull failed for ${cleanTag}: ${cliErr}. Trying Docker API fallback...`);
-      try {
-        await new Promise((resolve, reject) => {
-          docker.pull(cleanTag, (err: any, stream: any) => {
+      await new Promise((resolve, reject) => {
+        docker.pull(cleanTag, (err: any, stream: any) => {
+          if (err) return reject(err);
+          docker.modem.followProgress(stream, (err: any, output: any) => {
             if (err) return reject(err);
-            docker.modem.followProgress(stream, (err: any, output: any) => {
-              if (err) return reject(err);
-              resolve(output);
-            });
+            resolve(output);
           });
         });
-      } catch (pullErr: any) {
-        console.warn(`Docker pull failed for ${cleanTag}: ${pullErr?.message || pullErr}. Falling back to ubuntu:22.04...`);
-        if (cleanTag !== "ubuntu:22.04") {
-          try {
-            await execAsync(`${engine} pull ubuntu:22.04`);
-          } catch (fb) {
-            console.warn("Fallback ubuntu:22.04 pull error:", fb);
-          }
-        }
-      }
+      });
     }
   };
 
@@ -196,6 +198,7 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
       await pullImageStream(shortImage);
       let idAfterShort = await findImageId();
       if (idAfterShort) return idAfterShort;
+      return shortImage;
     } catch (e) {
       console.warn(`Failed to pull ${shortImage}...`, e);
     }
@@ -206,19 +209,23 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
         await pullImageStream(fullImage);
         let idAfterFull = await findImageId();
         if (idAfterFull) return idAfterFull;
+        return fullImage;
       } catch (fallbackErr) {
         console.warn(`Fallback pull failed for ${fullImage}...`, fallbackErr);
       }
     }
 
-    // Default safe fallback image
-    try {
-      await pullImageStream("ubuntu:22.04");
-      return "ubuntu:22.04";
-    } catch (uErr) {
-      console.warn("Could not pull ubuntu:22.04 directly:", uErr);
-      return "ubuntu:22.04";
+    if (isLinuxDistroServer) {
+      try {
+        await pullImageStream("ubuntu:22.04");
+        return "ubuntu:22.04";
+      } catch (uErr) {
+        console.warn("Could not pull ubuntu:22.04 directly:", uErr);
+        return "ubuntu:22.04";
+      }
     }
+
+    throw new Error(`Failed to pull Docker image: ${shortImage}`);
   };
 
   const targetImage = await ensureImage();
@@ -276,13 +283,8 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
     : (isProxy ? '/server' : '/data');
 
   const buildContainerOptions = (img: string) => {
-    const isAlpine = img.includes("alpine");
-    const isLinuxDistro = isQemuVm || 
-      serverData.type === "LINUX" || 
-      img.includes("ubuntu") || 
-      img.includes("debian") || 
-      img.includes("alpine") || 
-      img.includes("rocky");
+    const isAlpine = img.toLowerCase().startsWith("alpine");
+    const isLinuxDistro = isLinuxDistroServer;
 
     const opts: any = {
       Image: img,
@@ -319,13 +321,13 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
   try {
     container = await docker.createContainer(buildContainerOptions(targetImage));
   } catch (err: any) {
-    console.warn(`Initial container creation failed for ${targetImage}: ${err?.message || err}. Attempting safe fallback to ubuntu:22.04...`);
-    try {
+    if (isLinuxDistroServer && targetImage !== "ubuntu:22.04") {
+      console.warn(`Initial VM container creation failed for ${targetImage}: ${err?.message || err}. Attempting fallback to ubuntu:22.04...`);
       await pullImageStream("ubuntu:22.04");
       container = await docker.createContainer(buildContainerOptions("ubuntu:22.04"));
-    } catch (fallbackErr: any) {
-      console.error("Critical fallback container creation failed:", fallbackErr);
-      throw fallbackErr;
+    } else {
+      console.error(`Container creation failed for ${targetImage}:`, err);
+      throw err;
     }
   }
 
@@ -410,13 +412,7 @@ CREATED="${new Date().toISOString()}"
     } catch(e) {}
     
     const serverObj = (await readJSON("servers.json") || []).find((s: any) => s.id === id);
-    const isLinuxDistro = serverObj?.type === "LINUX" || 
-                          serverObj?.eggId === "egg-qemu-cloud-vm" || 
-                          Boolean(serverObj?.cpuModel) ||
-                          Boolean(serverObj?.dockerImage?.includes("ubuntu")) ||
-                          Boolean(serverObj?.dockerImage?.includes("debian")) ||
-                          Boolean(serverObj?.dockerImage?.includes("alpine")) ||
-                          Boolean(serverObj?.dockerImage?.includes("rocky"));
+    const isLinuxDistro = isLinuxServer(serverObj);
 
     if (isLinuxDistro) {
       const ramMB = serverObj?.ram ? serverObj.ram * 1024 : 2048;
@@ -450,13 +446,7 @@ CREATED="${new Date().toISOString()}"
   const serverObj = servers.find((s: any) => s.containerId === containerId || s.id === containerId.replace("mock-container-id-", ""));
   const serverId = serverObj?.id || containerId.replace("mock-container-id-", "");
 
-  const isLinuxDistro = serverObj?.type === "LINUX" || 
-                        serverObj?.eggId === "egg-qemu-cloud-vm" || 
-                        Boolean(serverObj?.cpuModel) ||
-                        Boolean(serverObj?.dockerImage?.includes("ubuntu")) ||
-                        Boolean(serverObj?.dockerImage?.includes("debian")) ||
-                        Boolean(serverObj?.dockerImage?.includes("alpine")) ||
-                        Boolean(serverObj?.dockerImage?.includes("rocky"));
+  const isLinuxDistro = isLinuxServer(serverObj);
 
   if (isLinuxDistro) {
     const ramMB = serverObj?.ram ? serverObj.ram * 1024 : 2048;
@@ -760,13 +750,7 @@ export const sendContainerCommand = async (containerId: string, command: string,
 
   const serverId = server?.id || containerId.replace("mock-container-id-", "");
 
-  const isLinuxDistro = server?.type === "LINUX" || 
-                        server?.eggId === "egg-qemu-cloud-vm" || 
-                        Boolean(server?.cpuModel) ||
-                        Boolean(server?.dockerImage?.includes("ubuntu")) ||
-                        Boolean(server?.dockerImage?.includes("debian")) ||
-                        Boolean(server?.dockerImage?.includes("alpine")) ||
-                        Boolean(server?.dockerImage?.includes("rocky"));
+  const isLinuxDistro = isLinuxServer(server);
 
   if (command.trim().toLowerCase() === "clear" || command.trim().toLowerCase() === "cls") {
     ioInstance?.to(`server_${serverId}`).emit("clear_logs");

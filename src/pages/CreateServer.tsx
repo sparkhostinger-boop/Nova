@@ -314,13 +314,12 @@ export default function CreateServer() {
     }, 300);
 
     try {
-      const finalCpuModel = cpuModel === "Custom Model..." 
-        ? (customCpuModel.trim() || "Custom Virtual CPU") 
-        : cpuModel;
-      const finalCpuVendor = cpuVendor === "CUSTOM" 
-        ? (customVendorInput.trim() || "CustomVendor") 
-        : cpuVendor;
-      const finalHostname = vmHostname.trim() || (name ? name.toLowerCase().replace(/[^a-z0-9_-]/g, "-") : "cloud-vm-1");
+      const isVmServer =
+        type === "LINUX" ||
+        (type === "CUSTOM" &&
+          Boolean(selectedEgg) &&
+          (selectedEgg.id === "egg-qemu-cloud-vm" ||
+            (selectedEgg.category || "").toLowerCase().includes("virtualization")));
 
       const payload: any = {
         name,
@@ -330,28 +329,39 @@ export default function CreateServer() {
         port: Number(port),
         ipAlias,
         type,
-        version: osDistro || version,
+        version: isVmServer ? (osDistro || version) : version,
         motd: isMinecraft ? motd : "",
         cracked: isMinecraft ? Boolean(cracked) : false,
-        cpuModel: finalCpuModel,
-        cpuVendor: finalCpuVendor,
-        vmUsername: vmUsername.trim() || "ubuntu",
-        vmPassword: vmPassword.trim() || "ubuntu123",
-        vmHostname: finalHostname,
-        osDistro: osDistro || version || "Ubuntu 24.04",
-        sshPort: Number(sshPort || port || 2222),
-        guiMode: Boolean(guiMode),
-        variables: {
+      };
+
+      if (isVmServer) {
+        const finalCpuModel = cpuModel === "Custom Model..."
+          ? (customCpuModel.trim() || "Custom Virtual CPU")
+          : cpuModel;
+        const finalCpuVendor = cpuVendor === "CUSTOM"
+          ? (customVendorInput.trim() || "CustomVendor")
+          : cpuVendor;
+        const finalHostname = vmHostname.trim() || (name ? name.toLowerCase().replace(/[^a-z0-9_-]/g, "-") : "cloud-vm-1");
+
+        payload.cpuModel = finalCpuModel;
+        payload.cpuVendor = finalCpuVendor;
+        payload.vmUsername = vmUsername.trim() || "ubuntu";
+        payload.vmPassword = vmPassword.trim() || "ubuntu123";
+        payload.vmHostname = finalHostname;
+        payload.osDistro = osDistro || version || "Ubuntu 24.04";
+        payload.sshPort = Number(sshPort || port || 2222);
+        payload.guiMode = Boolean(guiMode);
+        payload.variables = {
           CPU_MODEL: finalCpuModel,
           CPU_VENDOR: finalCpuVendor,
-          VM_USERNAME: vmUsername.trim() || "ubuntu",
-          VM_PASSWORD: vmPassword.trim() || "ubuntu123",
+          VM_USERNAME: payload.vmUsername,
+          VM_PASSWORD: payload.vmPassword,
           VM_HOSTNAME: finalHostname,
-          SSH_PORT: String(sshPort || port || 2222),
-          GUI_MODE: String(guiMode),
-          OS_DISTRO: osDistro || version || "Ubuntu 24.04",
-        }
-      };
+          SSH_PORT: String(payload.sshPort),
+          GUI_MODE: String(payload.guiMode),
+          OS_DISTRO: payload.osDistro,
+        };
+      }
 
       if (type === "LINUX") {
         const distroObj = LINUX_DISTROS.find(d => d.id === osDistro) || LINUX_DISTROS[0];
@@ -370,7 +380,7 @@ export default function CreateServer() {
         payload.customEgg = true;
         payload.eggId = selectedEgg.id;
         let chosenImage = customDockerImage || selectedEgg.dockerImage;
-        if (chosenImage) {
+        if (isVmServer && chosenImage) {
           const lower = chosenImage.toLowerCase();
           if (lower.includes("multi-vm") || lower.includes("hopingboyz") || lower.includes("cloud/multi-vm") || lower.includes("ghcr.io/cloud")) {
             chosenImage = "ubuntu:22.04";
