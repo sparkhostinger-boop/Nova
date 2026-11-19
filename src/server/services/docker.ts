@@ -90,7 +90,9 @@ export const sanitizeDockerImage = (img?: string | null): string => {
     lower.includes("multi-vm") ||
     lower.includes("hopingboyz") ||
     lower.includes("cloud/multi-vm-manager") ||
-    lower.includes("ghcr.io/cloud")
+    lower.includes("cloud/multi-vm") ||
+    lower.includes("ghcr.io/cloud") ||
+    lower.includes("multi-vm-manager")
   ) {
     return "ubuntu:22.04";
   }
@@ -107,6 +109,11 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
   const serverType = serverData.type || "PAPER";
   const isProxy = ["VELOCITY", "BUNGEECORD", "WATERFALL"].includes(serverType.toUpperCase());
 
+  const isLinuxDistroServer = serverData.type === "LINUX" || 
+                              serverData.eggId === "egg-qemu-cloud-vm" || 
+                              Boolean(serverData.cpuModel) ||
+                              Boolean(serverData.osDistro);
+
   const isCustomEgg = Boolean(serverData.customEgg || serverData.eggId || serverData.dockerImage);
   
   const isQemuVm = serverData.eggId === "egg-qemu-cloud-vm" || 
@@ -117,7 +124,11 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
   let shortImage = isProxy ? "itzg/bungeecord:latest" : "itzg/minecraft-server:latest";
   let fullImage = isProxy ? "docker.io/itzg/bungeecord:latest" : "docker.io/itzg/minecraft-server:latest";
   
-  if (isCustomEgg && serverData.dockerImage) {
+  if (isLinuxDistroServer) {
+    let rawImg = sanitizeDockerImage(serverData.dockerImage);
+    shortImage = rawImg || "ubuntu:22.04";
+    fullImage = shortImage.includes("/") ? shortImage : `docker.io/${shortImage}`;
+  } else if (isCustomEgg && serverData.dockerImage) {
     let rawImg = sanitizeDockerImage(serverData.dockerImage);
     shortImage = rawImg;
     fullImage = rawImg.includes("/") ? rawImg : `docker.io/${rawImg}`;
@@ -297,8 +308,8 @@ export const createServerContainer = async (serverData: any, nodeId?: string) =>
 
     if (isLinuxDistro) {
       opts.Cmd = isAlpine 
-        ? ["/bin/sh", "-c", "while true; do sleep 86400; done"] 
-        : ["/bin/bash", "-c", "while true; do sleep 86400; done"];
+        ? ["/bin/sh", "-c", "while true; do /bin/sh -i; echo '[Process completed. Restarting shell...]'; sleep 1; done"] 
+        : ["/bin/bash", "-c", "while true; do /bin/bash -i; echo '[Process completed. Restarting shell...]'; sleep 1; done"];
     }
 
     return opts;
@@ -463,6 +474,12 @@ CREATED="${new Date().toISOString()}"
     } else {
       vmBanner = `\r\nWelcome to ${osDistro} (GNU/Linux 6.8.0-generic x86_64)\r\n\r\n * Documentation:  https://help.ubuntu.com\r\n * Management:     https://landscape.canonical.com\r\n * Support:        https://ubuntu.com/pro\r\n\r\nSystem information as of ${new Date().toUTCString()}:\r\n  System load:  0.01               Processes:             18\r\n  Memory usage: ${Math.round(ramMB * 0.12)} MB / ${ramMB} MB\r\n  IPv4 address: 172.17.0.2\r\n\r\n${vmUser}@${vmHost}:~# `;
     }
+
+    containerSessions[containerId] = {
+      cwd: "/root",
+      user: vmUser,
+      hostname: vmHost
+    };
 
     ioInstance?.to(`server_${serverId}`).emit("log", vmBanner);
   }
@@ -786,7 +803,7 @@ export const sendContainerCommand = async (containerId: string, command: string,
       const emitPrompt = () => {
         const symbol = session.user === "root" ? "#" : "$";
         const disp = session.cwd === "/root" ? "~" : session.cwd;
-        ioInstance?.to(`server_${serverId}`).emit("log", `\x1b[1;32m${session.user}@${session.hostname}\x1b[0m:\x1b[1;34m${disp}\x1b[0m${symbol} `);
+        ioInstance?.to(`server_${serverId}`).emit("log", `\x1b[1;32m${session.user}@${session.hostname}\x1b[0m:\x1b[1;34m${disp}\x1b[0m${symbol} \r\n`);
       };
 
       if (trimmed.toLowerCase() === "clear" || trimmed.toLowerCase() === "cls") {
@@ -812,7 +829,7 @@ export const sendContainerCommand = async (containerId: string, command: string,
             Cmd: [shellBin, "-c", `cd "${session.cwd}" && cd ${target} && pwd`],
             AttachStdout: true,
             AttachStderr: true,
-            Tty: false
+            Tty: true
           });
           const stream = await exec.start({ hijack: true, stdin: false });
           let newDir = "";
@@ -820,7 +837,7 @@ export const sendContainerCommand = async (containerId: string, command: string,
             newDir += chunk.toString();
           });
           stream.on("end", () => {
-            const lines = newDir.trim().split(/\r?\n/);
+            const lines = newDir.replace(/\r/g, "").trim().split("\n");
             const finalLine = lines[lines.length - 1]?.trim();
             if (finalLine && finalLine.startsWith("/")) {
               session.cwd = finalLine;
@@ -836,7 +853,7 @@ export const sendContainerCommand = async (containerId: string, command: string,
         return;
       }
 
-      // Execute real Linux command inside the container
+      // Execute real Linux command inside the container with TTY=true for full colors and no multiplex header
       try {
         const exec = await container.exec({
           Cmd: [
@@ -846,7 +863,7 @@ export const sendContainerCommand = async (containerId: string, command: string,
           ],
           AttachStdout: true,
           AttachStderr: true,
-          Tty: false
+          Tty: true
         });
         const stream = await exec.start({ hijack: true, stdin: false });
         stream.on("data", (chunk: Buffer) => {

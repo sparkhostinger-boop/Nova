@@ -7,46 +7,79 @@ import fs from "fs-extra";
 const DATA_DIR = path.join(process.cwd(), ".data");
 const USERS_FILE = path.join(DATA_DIR, "users.json");
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-
 fs.ensureDirSync(DATA_DIR);
-if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, "[]");
+if (!fs.existsSync(USERS_FILE)) {
+  fs.writeFileSync(USERS_FILE, "[]");
+}
 
-console.log("=== Nova Panel Admin User Creation ===");
+const handleUserCreation = async (rawUser: string, rawPass: string) => {
+  const username = String(rawUser || "").replace(/[\r\n]/g, "").trim();
+  const password = String(rawPass || "").replace(/[\r\n]/g, "").trim();
 
-rl.question("Username: ", async (username) => {
-  rl.question("Password: ", async (password) => {
-    if (!username || !password) {
-      console.error("Username and password are required.");
-      process.exit(1);
+  if (!username || !password) {
+    console.error("Username and password are required.");
+    process.exit(1);
+  }
+
+  let users: any[] = [];
+  try {
+    const raw = await fs.readFile(USERS_FILE, "utf8");
+    users = JSON.parse(raw || "[]");
+    if (!Array.isArray(users)) users = [];
+  } catch (e) {
+    users = [];
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const existingIndex = users.findIndex(
+    (u: any) => String(u.username || "").toLowerCase() === username.toLowerCase()
+  );
+
+  if (existingIndex !== -1) {
+    users[existingIndex].username = username;
+    users[existingIndex].password = hashedPassword;
+    users[existingIndex].rawPassword = password;
+    users[existingIndex].role = "admin";
+    users[existingIndex].passwordVersion = (users[existingIndex].passwordVersion || 0) + 1;
+    if (!users[existingIndex].email) {
+      users[existingIndex].email = `${username}@novapanel.local`;
     }
-    const users = await fs.readJson(USERS_FILE);
-    const existingIndex = users.findIndex((u: any) => u.username === username);
-    
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
-    if (existingIndex !== -1) {
-      // update to admin
-      users[existingIndex].password = hashedPassword;
-      users[existingIndex].role = "admin";
-      await fs.writeJson(USERS_FILE, users, { spaces: 2 });
-      console.log("Admin user updated successfully.");
-      process.exit(0);
-    } else {
-      users.push({
-        id: Date.now().toString(),
-        username,
-        password: hashedPassword,
-        role: "admin",
-        createdAt: new Date().toISOString()
-      });
+    await fs.writeJson(USERS_FILE, users, { spaces: 2 });
+    console.log(`Admin user '${username}' updated successfully.`);
+    process.exit(0);
+  } else {
+    users.push({
+      id: "admin-" + Date.now().toString(),
+      username,
+      email: `${username}@novapanel.local`,
+      password: hashedPassword,
+      rawPassword: password,
+      role: "admin",
+      passwordVersion: 0,
+      createdAt: new Date().toISOString()
+    });
 
-      await fs.writeJson(USERS_FILE, users, { spaces: 2 });
-      console.log("Admin user created successfully.");
-      process.exit(0);
-    }
+    await fs.writeJson(USERS_FILE, users, { spaces: 2 });
+    console.log(`Admin user '${username}' created successfully.`);
+    process.exit(0);
+  }
+};
+
+// Check if username and password were provided via command line arguments
+const args = process.argv.slice(2).filter((arg) => !arg.startsWith("-"));
+if (args.length >= 2) {
+  handleUserCreation(args[0], args[1]);
+} else {
+  console.log("=== Nova Panel Admin User Creation ===");
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
   });
-});
+
+  rl.question("Username: ", (username) => {
+    rl.question("Password: ", (password) => {
+      rl.close();
+      handleUserCreation(username, password);
+    });
+  });
+}

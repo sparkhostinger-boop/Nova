@@ -19,12 +19,21 @@ export default function Register() {
   const [isLoading, setIsLoading] = useState(false);
   const location = useLocation();
 
+  const { 
+    panelName, enableLoginAnimation, enableRegistration, addons
+  } = useSettings();
+
   const hasSeenIntro = (() => {
     try {
+      if (enableLoginAnimation === false) return true;
+      if (location.state?.skipIntro) {
+        localStorage.setItem("auth_intro_seen", "true");
+        sessionStorage.setItem("auth_intro_seen", "true");
+        return true;
+      }
       return (
         sessionStorage.getItem("auth_intro_seen") === "true" ||
-        localStorage.getItem("auth_intro_seen") === "true" ||
-        Boolean(location.state?.skipIntro)
+        localStorage.getItem("auth_intro_seen") === "true"
       );
     } catch (e) {
       return false;
@@ -33,10 +42,6 @@ export default function Register() {
 
   const [introDone, setIntroDone] = useState(hasSeenIntro);
   const videoRef = React.useRef<HTMLVideoElement>(null);
-
-  const { 
-    panelName, enableLoginAnimation, enableRegistration, addons
-  } = useSettings();
 
   const navigate = useNavigate();
 
@@ -258,7 +263,10 @@ export default function Register() {
             to="/login" 
             state={{ skipIntro: true }}
             onClick={() => {
-              try { sessionStorage.setItem("auth_intro_seen", "true"); } catch (e) {}
+              try { 
+                sessionStorage.setItem("auth_intro_seen", "true"); 
+                localStorage.setItem("auth_intro_seen", "true"); 
+              } catch (e) {}
             }}
             style={{ color: "#fff", fontWeight: 600, textDecoration: "underline" }}
           >

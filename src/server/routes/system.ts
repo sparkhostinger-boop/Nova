@@ -179,24 +179,30 @@ router.post("/users", async (req, res) => {
   const user = (req as any).user;
   if(user.role !== "admin" && user.role !== "owner") return res.status(403).json({ error: "Forbidden"});
   const { username, password, role } = req.body;
-  if (!username || !password || !role) return res.status(400).json({ error: "Missing fields" });
+  const cleanUsername = String(username || "").replace(/[\r\n]/g, "").trim();
+  const cleanPassword = String(password || "").replace(/[\r\n]/g, "").trim();
+  if (!cleanUsername || !cleanPassword || !role) return res.status(400).json({ error: "Missing fields" });
 
   const users = await readJSON("users.json") || [];
-  if (users.find((u: any) => u.username === username)) return res.status(400).json({ error: "Username taken" });
+  if (users.find((u: any) => String(u.username || "").trim().toLowerCase() === cleanUsername.toLowerCase())) {
+    return res.status(400).json({ error: "Username taken" });
+  }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await bcrypt.hash(cleanPassword, 10);
   const newUserId = Date.now().toString();
   users.push({
     id: newUserId,
-    username,
+    username: cleanUsername,
+    email: `${cleanUsername}@novapanel.local`,
     password: hashedPassword,
-    rawPassword: password,
+    rawPassword: cleanPassword,
     role,
+    passwordVersion: 0,
     createdAt: new Date().toISOString()
   });
 
   await writeJSON("users.json", users);
-  res.json({ success: true, id: newUserId, username, role, password });
+  res.json({ success: true, id: newUserId, username: cleanUsername, role, password: cleanPassword });
 });
 
 router.delete("/users/:id", async (req, res) => {

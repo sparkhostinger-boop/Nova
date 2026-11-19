@@ -212,6 +212,7 @@ module.exports = {
   apps: [
     {
       name: "nova-panel",
+      cwd: __dirname,
       script: "npm",
       args: "start",
       instances: 1,
@@ -227,6 +228,12 @@ module.exports = {
   ]
 };
 EOF
+
+    # Clean up unwanted AI artifacts and temporary directories from git
+    if [ -d ".git" ]; then
+        git rm -r --cached .aistudio app works 2>/dev/null || true
+    fi
+    rm -rf app works 2>/dev/null || true
 
     log_info "Installing project dependencies..."
     npm install
@@ -301,6 +308,10 @@ update_panel() {
     git pull https://github.com/sparkhostinger-boop/Nova.git main || git pull https://github.com/sparkhostinger-boop/Nova.git master || git pull
     
     log_info "Updating dependencies..."
+    if [ -d ".git" ]; then
+        git rm -r --cached .aistudio app works 2>/dev/null || true
+    fi
+    rm -rf app works 2>/dev/null || true
     npm install
     
     log_info "Rebuilding production assets..."

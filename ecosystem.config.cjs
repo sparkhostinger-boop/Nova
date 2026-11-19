@@ -2,6 +2,7 @@ module.exports = {
   apps: [
     {
       name: "nova-panel",
+      cwd: __dirname,
       script: "npm",
       args: "start",
       instances: 1,
@@ -16,3 +17,4 @@ module.exports = {
     }
   ]
 };
+

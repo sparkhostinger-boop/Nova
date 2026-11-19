@@ -76,7 +76,7 @@ export const PRESET_EGGS: SoftwareEgg[] = [
     category: "Minecraft Bedrock",
     author: "PocketMine Team",
     description: "Ultra-fast custom software written in PHP for Minecraft Bedrock Edition servers with powerful plugin API.",
-    dockerImage: "ghcr.io/pocketmine/pocketmine-mp:latest",
+    dockerImage: "pmmp/pocketmine-mp:latest",
     startupCommand: "./bin/php7/bin/php ./PocketMine-MP.phar",
     stopCommand: "stop",
     defaultPort: 19132,

@@ -9,6 +9,11 @@ const fileCache: Record<string, { data: any; mtime: number }> = {};
 export const readJSON = async (filename: string) => {
   const filePath = path.join(DATA_DIR, filename);
   try {
+    if (filename === "users.json") {
+      if (!(await fs.pathExists(filePath))) return null;
+      return await fs.readJson(filePath);
+    }
+
     const stat = await fs.stat(filePath).catch(() => null);
     if (!stat) return null;
 

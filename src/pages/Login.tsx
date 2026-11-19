@@ -18,13 +18,25 @@ export default function Login() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const location = useLocation();
+  const { login } = useAuth();
+
+  const { 
+    panelName, enableLoginAnimation, enableRegistration,
+    enableGoogleLogin, firebaseApiKey, firebaseAuthDomain, firebaseProjectId,
+    firebaseStorageBucket, firebaseMessagingSenderId, firebaseAppId, addons
+  } = useSettings();
 
   const hasSeenIntro = (() => {
     try {
+      if (enableLoginAnimation === false) return true;
+      if (location.state?.skipIntro) {
+        localStorage.setItem("auth_intro_seen", "true");
+        sessionStorage.setItem("auth_intro_seen", "true");
+        return true;
+      }
       return (
         sessionStorage.getItem("auth_intro_seen") === "true" ||
-        localStorage.getItem("auth_intro_seen") === "true" ||
-        Boolean(location.state?.skipIntro)
+        localStorage.getItem("auth_intro_seen") === "true"
       );
     } catch (e) {
       return false;
@@ -33,12 +45,6 @@ export default function Login() {
 
   const [introDone, setIntroDone] = useState(hasSeenIntro);
   const videoRef = React.useRef<HTMLVideoElement>(null);
-
-  const { 
-    panelName, enableLoginAnimation, enableRegistration,
-    enableGoogleLogin, firebaseApiKey, firebaseAuthDomain, firebaseProjectId,
-    firebaseStorageBucket, firebaseMessagingSenderId, firebaseAppId, addons
-  } = useSettings();
   const navigate = useNavigate();
 
   const isAntibotEnabled = addons?.antibot?.enabled && addons.antibot.targetPages?.includes("login");
@@ -311,7 +317,10 @@ export default function Login() {
               to="/register" 
               state={{ skipIntro: true }}
               onClick={() => {
-                try { sessionStorage.setItem("auth_intro_seen", "true"); } catch (e) {}
+                try { 
+                  sessionStorage.setItem("auth_intro_seen", "true"); 
+                  localStorage.setItem("auth_intro_seen", "true"); 
+                } catch (e) {}
               }}
               style={{ color: "#fff", fontWeight: 600, textDecoration: "underline" }}
             >
