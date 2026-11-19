@@ -124,7 +124,9 @@ export default function Login() {
       login(res.data.token, res.data.user);
       navigate("/");
     } catch (err: any) {
-      setError(err.response?.data?.error || "Login failed");
+      const apiErr = err?.response?.data?.error;
+      const httpErr = err?.response ? `Login failed (HTTP ${err.response.status})` : null;
+      setError(apiErr || httpErr || err?.message || "Login failed");
     } finally {
       setIsLoading(false);
     }

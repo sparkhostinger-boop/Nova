@@ -2,9 +2,13 @@ import "dotenv/config";
 import bcrypt from "bcryptjs";
 import readline from "readline";
 import path from "path";
+import { fileURLToPath } from "url";
 import fs from "fs-extra";
 
-const DATA_DIR = path.join(process.cwd(), ".data");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PROJECT_ROOT = path.resolve(__dirname, "..");
+const DATA_DIR = path.join(PROJECT_ROOT, ".data");
 const USERS_FILE = path.join(DATA_DIR, "users.json");
 
 fs.ensureDirSync(DATA_DIR);
